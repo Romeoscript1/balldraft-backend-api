@@ -77,6 +77,7 @@ DATABASES = {
     }
 }
 
+AUTH_USER_MODEL="accounts.User"
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -118,3 +119,19 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+EMAIL_HOST = 'sandbox.smtp.mailtrap.io'
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL='supersonicwisdom@gmail.com'
+EMAIL_PORT = '2525'
+EMAIL_USE_TLS=True
+
+# {
+#     "email":"test@user.com",
+#     "first_name":"test",
+#     "last_name":"user",
+#     "dob":"2000-02-13",
+#     "password":"test123",
+#     "password2":"test123"
+# }
