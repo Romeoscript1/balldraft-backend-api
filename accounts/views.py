@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework.generics import GenericAPIView
-from .serializers import UserRegisterSerializer
+from .serializers import UserRegisterSerializer, LoginSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from .utils import send_code_to_user
@@ -21,7 +21,7 @@ class RegisterUserView(GenericAPIView):
             #send email function user['email]
             return Response({
                 'data':user,
-                'message':f'Welcome {user['first_name']} to Balldraft. Thanks for signing up. Check your mail for you passcode.'
+                'message':f'Welcome {user["first_name"]} to Balldraft. Thanks for signing up. Check your mail for you passcode.'
             }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -43,3 +43,21 @@ class VerifyUserEmail(GenericAPIView):
             }, status=status.HTTP_204_NO_CONTENT)
         except OneTimePassword.DoesNotExist:
             return Response({"message":"passcode not provided"}, status=status.HTTP_404_NOT_FOUND)
+
+class LoginUserView(GenericAPIView):
+    serializer_class = LoginSerializer
+    
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data, context={"request":request})
+        print(serializer)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+# {
+#     "email":"test@user.com",
+#     "first_name":"test",
+#     "last_name":"user",
+#     "dob":"2000-02-13",
+#     "password":"test123",
+#     "password2":"test123"
+# }

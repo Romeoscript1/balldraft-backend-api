@@ -1,5 +1,6 @@
 import environ
 from pathlib import Path
+from datetime import timedelta
 
 env = environ.Env(
     DEBUG=(bool, False)
@@ -79,6 +80,21 @@ DATABASES = {
 
 AUTH_USER_MODEL="accounts.User"
 
+REST_FRAMEWORK = {
+
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -126,12 +142,3 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL='supersonicwisdom@gmail.com'
 EMAIL_PORT = '2525'
 EMAIL_USE_TLS=True
-
-# {
-#     "email":"test@user.com",
-#     "first_name":"test",
-#     "last_name":"user",
-#     "dob":"2000-02-13",
-#     "password":"test123",
-#     "password2":"test123"
-# }

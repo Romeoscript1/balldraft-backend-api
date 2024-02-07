@@ -39,7 +39,7 @@ class UserManager(BaseUserManager):
             raise ValueError(_("is superuser must be true for the admin"))
         
         user=self.create_user(
-            email, first_name, last_name, password, dob, **extra_fields
+            email, first_name, last_name, dob, password, **extra_fields
         )
         user.save(using=self._db)
         return user

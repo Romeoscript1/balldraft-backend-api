@@ -8,6 +8,7 @@ def generateOtp():
     for i in range(6):
         otp += str(random.randint(1, 9))
     return otp
+# TODO redo this generateOtp pyotp 
 
 def send_code_to_user(email):
     Subject="One time password fro Email verification"
