@@ -14,7 +14,7 @@ from .models import OneTimePassword, User
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-
+from django.utils import timezone
 
 class RegisterUserView(GenericAPIView):
     serializer_class=UserRegisterSerializer
@@ -27,18 +27,29 @@ class RegisterUserView(GenericAPIView):
             user=serializer.data
             send_code_to_user(user['email'])
             #send email function user['email]
+
             return Response({
                 'data':user,
                 'message':f'Welcome {user["first_name"]} to Balldraft. Thanks for signing up. Check your mail for you passcode.'
             }, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
 
 class VerifyUserEmail(GenericAPIView):
     def post(self, request):
         otpcode=request.data.get('otp')
         try:
-            user_code_obj=OneTimePassword.objects.get(code=otpcode)
-            user = user_code_obj.user
+            user_otpcode_obj=OneTimePassword.objects.get(code=otpcode)
+            user = user_otpcode_obj.user
+
+            # checking expiration of otp
+            current_time = timezone.now()
+            otp_timestamp = user_otpcode_obj.time
+            if (current_time - otp_timestamp).total_seconds() > 60:
+                user_otpcode_obj.delete()
+                return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
             if not user.is_verified:
                 user.is_verified=True
                 user.save()
@@ -50,7 +61,7 @@ class VerifyUserEmail(GenericAPIView):
                 "message":"otp code is invalid. User already verified"
             }, status=status.HTTP_204_NO_CONTENT)
         except OneTimePassword.DoesNotExist:
-            return Response({"message":"passcode not provided"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginUserView(GenericAPIView):
     serializer_class = LoginSerializer

@@ -2,16 +2,16 @@ import random
 from django.core.mail import EmailMessage
 from .models import User, OneTimePassword
 from django.conf import settings
+import datetime
+import string
 
 def generateOtp():
-    otp=""
-    for i in range(6):
-        otp += str(random.randint(1, 9))
+    otp="".join(random.choices(string.digits, k=6))
     return otp
-# TODO redo this generateOtp pyotp 
 
 def send_code_to_user(email):
-    Subject="One time password fro Email verification"
+    Subject="One time password for Email verification"
+    global otp_code
     otp_code=generateOtp()
     print(otp_code)
     user=User.objects.get(email=email)
