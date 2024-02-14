@@ -4,8 +4,6 @@ from django.conf import settings
 from rest_framework.exceptions import AuthenticationFailed
 
 
-
-
 class GoogleSignInSerializer(serializers.Serializer):
     access_token = serializers.CharField(min_length=6)
 
