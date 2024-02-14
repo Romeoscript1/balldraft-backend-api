@@ -62,6 +62,29 @@ class VerifyUserEmail(GenericAPIView):
             }, status=status.HTTP_204_NO_CONTENT)
         except OneTimePassword.DoesNotExist:
             return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        
+class ResendCodeView(GenericAPIView):
+    def post(self, request):
+        email = request.data.get('email')
+
+        # user_otpcode_obj=OneTimePassword.objects.get(user.email=email)
+        # user = user_otpcode_obj.user
+
+        # # checking expiration of otp
+        # current_time = timezone.now()
+        # otp_timestamp = user_otpcode_obj.time
+        # if (current_time - otp_timestamp).total_seconds() > 60:
+        #     user_otpcode_obj.delete()
+        #     return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not email:
+            return Response({"message": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            send_code_to_user(email)
+            return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"message": "Failed to send new OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class LoginUserView(GenericAPIView):
     serializer_class = LoginSerializer

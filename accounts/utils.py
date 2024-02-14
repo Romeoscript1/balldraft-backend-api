@@ -5,8 +5,13 @@ from django.conf import settings
 import datetime
 import string
 
+# def generateOtp():
+#     otp="".join(random.choices(string.digits, k=6))
+#     return otp
+
 def generateOtp():
-    otp="".join(random.choices(string.digits, k=6))
+    digits = [str(i) for i in range(1, 10)] 
+    otp = "".join(random.sample(digits, 6))  
     return otp
 
 def send_code_to_user(email):

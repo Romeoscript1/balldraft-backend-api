@@ -33,7 +33,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault("is_verified", True)
 
         if extra_fields.get("is_staff") is not True:
-            raise ValueError(_("is staff must be tru for admin user"))
+            raise ValueError(_("is staff must be true for admin user"))
         
         if extra_fields.get("is_superuser") is not True:
             raise ValueError(_("is superuser must be true for the admin"))
