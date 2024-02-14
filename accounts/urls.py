@@ -5,7 +5,8 @@ from .views import (RegisterUserView,
                     PasswordResetConfirm, 
                     SetNewPassword, 
                     PasswordResetRequestView,
-                    LogoutUserView)
+                    LogoutUserView,
+                    ResendCodeView)
 from rest_framework.urlpatterns import format_suffix_patterns
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
@@ -27,6 +28,7 @@ schema_view = get_schema_view(
 urlpatterns=[
     path('register/', RegisterUserView.as_view(), name='register'),
     path('verify-email/', VerifyUserEmail.as_view(), name='verify-email'),
+    path('resend-code/', ResendCodeView.as_view(), name='resend_code'),
     path('login/', LoginUserView.as_view(), name='login'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset'),
     path('password_reset_confirm/<uidb64>/<token>/', PasswordResetConfirm.as_view(), name='password_reset_confirm'),
