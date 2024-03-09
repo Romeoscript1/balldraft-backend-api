@@ -1,12 +1,23 @@
 from django.urls import path
 from .views import (RegisterUserView, 
                     VerifyUserEmail, 
-                    LoginUserView,
                     PasswordResetConfirm, 
                     SetNewPassword, 
                     PasswordResetRequestView,
                     LogoutUserView,
-                    ResendCodeView)
+                    ResendCodeView,
+                    login_view,
+                    ProfileView, 
+
+                    #update views
+                    MobileNumberView, 
+                    AddressView,
+                    UserNameUpdateView,
+                    EmailChangeView,
+                    
+                    ActivateAccountView,
+                    DeactivateAccountView,
+                    DeleteAccountView)
 from rest_framework.urlpatterns import format_suffix_patterns
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
@@ -29,11 +40,24 @@ urlpatterns=[
     path('register/', RegisterUserView.as_view(), name='register'),
     path('verify-email/', VerifyUserEmail.as_view(), name='verify-email'),
     path('resend-code/', ResendCodeView.as_view(), name='resend_code'),
-    path('login/', LoginUserView.as_view(), name='login'),
+    path('login/', login_view, name='login'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset'),
-    path('password_reset_confirm/<uidb64>/<token>/', PasswordResetConfirm.as_view(), name='password_reset_confirm'),
+    path('password-reset-confirm/<uidb64>/<token>/', PasswordResetConfirm.as_view(), name='password_reset_confirm'),
     path('set-new-password/', SetNewPassword.as_view(), name='set_new_password'),
     path('logout/', LogoutUserView.as_view(), name='logout'),
+    path('profile/', ProfileView.as_view(), name='profile'),
+
+    #update urls
+    path('profile/mobile-number/', MobileNumberView.as_view(), name='mobile-number'),
+    path('profile/address/', AddressView.as_view(), name='address'),
+    path('update-username/', UserNameUpdateView.as_view(), name='update-username'),
+    path('change-email/', EmailChangeView.as_view(), name='change-email'),
+
+    path('account/deactivate/', DeactivateAccountView.as_view(), name='deactivate-account'),
+    path('account/activate/', ActivateAccountView.as_view(), name='activate-account'),
+    path('account/delete/', DeleteAccountView.as_view(), name='delete-account'),
+
+    #documentation url
     path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]
