@@ -1,98 +1,128 @@
 from django.shortcuts import render
-from rest_framework.generics import GenericAPIView
+from rest_framework.generics import GenericAPIView, RetrieveUpdateAPIView, UpdateAPIView
 from .serializers import (
     UserRegisterSerializer, 
-    LoginSerializer, 
     PasswordResetRequestSerializer, 
     SetNewPasswordSerializer,
-    LogoutUserSerializer)
+    LogoutUserSerializer,
+    ProfileSerializer, 
+    MobileNumberSerializer, 
+    AddressSerializer,
+    UserNameUpdateSerializer,
+    EmailChangeSerializer,
+    # DeactivateAccountSerializer, 
+    # DeleteAccountSerializer
+    DDConfirmActionAccountSerializer,)
+
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.permissions import AllowAny
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+
 from .utils import send_code_to_user
-from .models import OneTimePassword, User
+from .models import OneTimePassword, User, Profile, ReasonToLeave
+
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils import timezone
+from django.db import transaction
+
+from django.contrib.auth import get_user_model
+from rest_framework.views import APIView
+User = get_user_model()
 
 class RegisterUserView(GenericAPIView):
-    serializer_class=UserRegisterSerializer
+    serializer_class = UserRegisterSerializer
 
+    @transaction.atomic
     def post(self, request):
-        user_data=request.data
-        serializer=self.serializer_class(data=user_data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            user=serializer.data
-            send_code_to_user(user['email'])
-
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            send_code_to_user(user.email)
             return Response({
-                'data':user,
-                'message':f'Welcome {user["first_name"]} to Balldraft. Thanks for signing up. Check your mail for you passcode.'
+                'data': serializer.data,
+                'message': f'Welcome {user.first_name} to Balldraft. Thanks for signing up. Check your mail for your passcode.'
             }, status=status.HTTP_200_OK)
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
 
 class VerifyUserEmail(GenericAPIView):
-    def post(self, request):
-        otpcode=request.data.get('otp')
-        try:
-            user_otpcode_obj=OneTimePassword.objects.get(code=otpcode)
-            user = user_otpcode_obj.user
+    OTP_EXPIRATION_TIME_SECONDS = 90
 
-            # checking expiration of otp
-            current_time = timezone.now()
-            otp_timestamp = user_otpcode_obj.time
-            if (current_time - otp_timestamp).total_seconds() > 60:
-                user_otpcode_obj.delete()
-                return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request):
+        otp_code = request.data.get('otp')
+        try:
+            user_otp_obj = OneTimePassword.objects.get(code=otp_code)
+            user = user_otp_obj.user
+            if self.is_otp_expired(user_otp_obj):
+                user_otp_obj.delete()
+                return self.otp_expired_response()
 
             if not user.is_verified:
-                user.is_verified=True
+                user.is_verified = True
                 user.save()
-                return Response(
-                    {"message":"Account email verified succesfully"},
-                    status=status.HTTP_200_OK
-                )
-            return Response({
-                "message":"otp code is invalid. User already verified"
-            }, status=status.HTTP_204_NO_CONTENT)
+                return Response({"message": "Account email verified successfully"}, status=status.HTTP_200_OK)
+            else:
+                return Response({"message": "User is already verified"}, status=status.HTTP_204_NO_CONTENT)
+
         except OneTimePassword.DoesNotExist:
-            return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return self.otp_expired_response()
+
+    def is_otp_expired(self, otp_obj):
+        current_time = timezone.now()
+        otp_timestamp = otp_obj.time
+        time_difference_seconds = (current_time - otp_timestamp).total_seconds()
+        return time_difference_seconds > self.OTP_EXPIRATION_TIME_SECONDS
+
+    def otp_expired_response(self):
+        return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
+    
 class ResendCodeView(GenericAPIView):
+    OTP_EXPIRATION_TIME_SECONDS = 90
+
     def post(self, request):
         email = request.data.get('email')
 
-        # user_otpcode_obj=OneTimePassword.objects.get(user.email=email)
-        # user = user_otpcode_obj.user
-
-        # # checking expiration of otp
-        # current_time = timezone.now()
-        # otp_timestamp = user_otpcode_obj.time
-        # if (current_time - otp_timestamp).total_seconds() > 60:
-        #     user_otpcode_obj.delete()
-        #     return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
-        
         if not email:
             return Response({"message": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
-            send_code_to_user(email)
+            otp_obj = OneTimePassword.objects.get(user__email=email)
+            if self.is_otp_expired(otp_obj):
+                otp_obj.delete()  
+                send_code_to_user(email)  
+                return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
+            else:
+                return Response({"message": "OTP is still valid"}, status=status.HTTP_400_BAD_REQUEST)
+        except OneTimePassword.DoesNotExist:
+            send_code_to_user(email) 
             return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"message": "Failed to send new OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class LoginUserView(GenericAPIView):
-    serializer_class = LoginSerializer
-    
-    def post(self, request):
-        serializer = self.serializer_class(data=request.data, context={"request":request})
-        print(serializer)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def is_otp_expired(self, otp_obj):
+        current_time = timezone.now()
+        otp_timestamp = otp_obj.time
+        time_difference_seconds = (current_time - otp_timestamp).total_seconds()
+        return time_difference_seconds > self.OTP_EXPIRATION_TIME_SECONDS
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == status.HTTP_200_OK:
+            user = User.objects.filter(email=request.data.get('email')).first()
+            if user and not user.is_verified:
+                raise AuthenticationFailed('Email is not verified')
+        return response
+
+login_view = CustomTokenObtainPairView.as_view()
 
 class PasswordResetRequestView(GenericAPIView):
     serializer_class=PasswordResetRequestSerializer
@@ -104,31 +134,157 @@ class PasswordResetRequestView(GenericAPIView):
 class PasswordResetConfirm(GenericAPIView):
     def get(self, request, uidb64, token):
         try:
-            user_id=smart_str(urlsafe_base64_decode(uidb64))
-            user=User.objects.get(id=user_id)
-            if not PasswordResetTokenGenerator().check_token(user, token):
-                return Response({'message': 'token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
-            return Response({'success':True,'message':'credentials is valid', 'uidb64':uidb64, 'token':token}, status=status.HTTP_200_OK)
-            
-        except DjangoUnicodeDecodeError:
-            return Response({'message': 'token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
-        
+            user_id = smart_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(id=user_id)
+            if PasswordResetTokenGenerator().check_token(user, token):
+                return Response({'message': 'Credentials are valid', 'uidb64': uidb64, 'token': token})
+            else:
+                return Response({'message': 'Token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
+        except (TypeError, ValueError, DjangoUnicodeDecodeError, User.DoesNotExist):
+            return Response({'message': 'Token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
+
 class SetNewPassword(GenericAPIView):
-    serializer_class=SetNewPasswordSerializer
+    serializer_class = SetNewPasswordSerializer
+
     def patch(self, request):
-        serializer=self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response({"message":'password changed successfully'})
-
-class LogoutUserView(GenericAPIView):
-    serializer_class=LogoutUserSerializer
-    permission_classes=[IsAuthenticated]
-
-    def post(self, request):
-        serializer=self.serializer_class(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response({"message": "Password changed successfully"})
+
+class LogoutUserView(GenericAPIView):
+    serializer_class = LogoutUserSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "Logout successful"}, status=status.HTTP_204_NO_CONTENT)
+
+class ProfileView(RetrieveUpdateAPIView):
+    serializer_class = ProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return Profile.objects.get_or_create(user=self.request.user)[0]
+
+    def get_queryset(self):
+        return Profile.objects.filter(user=self.request.user)
+
+class MobileNumberView(RetrieveUpdateAPIView):
+    serializer_class = MobileNumberSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return Profile.objects.get_or_create(user=self.request.user)[0]
+
+    def update(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = self.get_object()
+        instance.mobile_number = serializer.validated_data.get('mobile_number')
+        instance.save()
+        return Response({'message': 'Mobile number updated successfully'}, status=status.HTTP_200_OK)
+
+class AddressView(RetrieveUpdateAPIView):
+    serializer_class = AddressSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return Profile.objects.get_or_create(user=self.request.user)[0]
+
+    def update(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = self.get_object()
+        instance.address = serializer.validated_data.get('address')
+        instance.country = serializer.validated_data.get('country')
+        instance.state = serializer.validated_data.get('state')
+        instance.city = serializer.validated_data.get('city')
+        instance.zip_code = serializer.validated_data.get('zip_code')
+        instance.save()
+        return Response({'message': 'Address updated successfully'}, status=status.HTTP_200_OK)
+
+class UserNameUpdateView(UpdateAPIView):
+    serializer_class = UserNameUpdateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        serializer = self.get_serializer(instance=self.get_object(), data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'message': 'Username updated successfully'}, status=status.HTTP_200_OK)
+
+class EmailChangeView(UpdateAPIView):
+    serializer_class = EmailChangeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        serializer = self.get_serializer(instance=self.get_object(), data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = self.get_object()
+        new_email = serializer.validated_data['new_email']
+
+        user.email = new_email
+        user.save()
+
+        verify_email_view = VerifyUserEmail.as_view()
+        response = verify_email_view(request._request)
+        return Response(response.data, status=response.status_code)
+
+class DeactivateAccountView(APIView):
+    def post(self, request):
+        serializer = DDConfirmActionAccountSerializer(data=request.data)
+        if serializer.is_valid():
+            reason = serializer.validated_data['reason']
+            comment = serializer.validated_data['comment']
+            
+            reason_to_leave = ReasonToLeave.objects.create(
+                user=request.user,
+                reason=reason,
+                comment=comment,
+                is_deactivate=True
+            )
+
+            user = request.user 
+            user.is_active = False
+            user.save()
+            return Response({'message': 'Account deactivated successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ActivateAccountView(APIView):
+    def post(self, request):
+        user = request.user
+        user.is_active = True
+        user.save()
+        return Response({'message': 'Account activated successfully'}, status=status.HTTP_200_OK)
+
+class DeleteAccountView(APIView):
+    def post(self, request):
+        serializer = DDConfirmActionAccountSerializer(data=request.data)
+        if serializer.is_valid():
+            reason = serializer.validated_data['reason']
+            comment = serializer.validated_data['comment']
+            
+            reason_to_leave = ReasonToLeave.objects.create(
+                user=request.user,
+                reason=reason,
+                comment=comment,
+                is_delete=True
+            )
+
+            user = request.user 
+            user.delete()
+            return Response({'message': 'Account deleted successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
 # {
 #     "email":"test@user.com",
 #     "first_name":"test",
