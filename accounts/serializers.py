@@ -1,3 +1,4 @@
+from datetime import timedelta, datetime
 from rest_framework import serializers
 from .models import User, Profile
 
@@ -10,7 +11,7 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.utils.encoding import force_bytes, force_str, DjangoUnicodeDecodeError
 from .utils import send_reset_password_email
 
-from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError, AccessToken
 
 from django.contrib.auth.password_validation import validate_password
 
@@ -92,18 +93,36 @@ class SetNewPasswordSerializer(serializers.Serializer):
         return user
         
 class LogoutUserSerializer(serializers.Serializer):
-    refresh_token = serializers.CharField(max_length=255, write_only=True, required=False)
+    refresh_token = serializers.CharField(max_length=255, write_only=True)
+    access_token = serializers.CharField(max_length=255, write_only=True)
 
     def validate(self, attrs):
-        self.token = attrs.get('refresh_token')
+        refresh_token = attrs.get('refresh_token')
+        access_token = attrs.get('access_token')
+
+        if not refresh_token:
+            raise serializers.ValidationError("Refresh token is required")
+        if not access_token:
+            raise serializers.ValidationError("Access token is required")
+
         return attrs
 
     def save(self, **kwargs):
         try:
-            token = RefreshToken(self.token)
+            refresh_token = self.validated_data['refresh_token']
+            access_token = self.validated_data['access_token']
+
+            # Blacklist the refresh token
+            token = RefreshToken(refresh_token)
             token.blacklist()
-        except TokenError:
-            raise AuthenticationFailed("Token is invalid or has expired")
+
+            past_time = datetime.now() - timedelta(days=1)  # Set to expire 1 day ago
+            access_token_obj = AccessToken(access_token)
+            access_token_obj.set_exp(past_time)
+            access_token_obj.save()
+
+        except TokenError as e:
+            raise AuthenticationFailed(str(e))
         
 class UserNameUpdateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -149,10 +168,15 @@ class DDConfirmActionAccountSerializer(serializers.Serializer):
     password = serializers.CharField(required=True)
     # confirmation = serializers.BooleanField()
 
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+
     def validate_password(self, value):
-        user = self.context['request'].user
-        if not user.check_password(value):
-            raise serializers.ValidationError("Incorrect password")
+        if self.request:
+            user = self.request.user
+            if not user.check_password(value):
+                raise serializers.ValidationError("Incorrect password")
         return value
 
 # class DeleteAccountSerializer(serializers.Serializer):

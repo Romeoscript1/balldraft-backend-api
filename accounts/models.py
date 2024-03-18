@@ -21,6 +21,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_superuser = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    is_deactivate = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(auto_now=True)
     auth_provider = models.CharField(max_length=50, default=AUTH_PROVIDERS.get('email'))
@@ -70,11 +71,16 @@ class Profile(models.Model):
     mobile_number = models.CharField(max_length=15, blank=True, null=True)
 
     def __str__(self):
-        return self.user.username + "'s Profile"
+        return self.user.user_name + "'s Profile"
     
 class ReasonToLeave(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     reason = models.CharField(max_length=500)
     comment = models.CharField(max_length=3000, null=True, blank=True)
     is_delete = models.BooleanField(default=False)
     is_deactivate = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Reason to Leave"
+        verbose_name_plural = "Reasons to Leave"

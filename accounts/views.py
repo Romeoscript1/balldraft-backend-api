@@ -20,6 +20,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import TokenAuthentication
 
 from .utils import send_code_to_user
 from .models import OneTimePassword, User, Profile, ReasonToLeave
@@ -29,6 +30,7 @@ from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils import timezone
 from django.db import transaction
+from django.core.exceptions import ObjectDoesNotExist
 
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
@@ -160,7 +162,7 @@ class LogoutUserView(GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response({"message": "Logout successful"}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"message": "Logout successful"}, status=status.HTTP_200_OK)
 
 class ProfileView(RetrieveUpdateAPIView):
     serializer_class = ProfileSerializer
@@ -254,7 +256,7 @@ class DeactivateAccountView(APIView):
             )
 
             user = request.user 
-            user.is_active = False
+            user.is_deactivate = True
             user.save()
             return Response({'message': 'Account deactivated successfully'}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -262,9 +264,21 @@ class DeactivateAccountView(APIView):
 class ActivateAccountView(APIView):
     def post(self, request):
         user = request.user
-        user.is_active = True
-        user.save()
-        return Response({'message': 'Account activated successfully'}, status=status.HTTP_200_OK)
+        try:
+            with transaction.atomic():
+                # profile = Profile.objects.get(user=user)
+                reason = ReasonToLeave.objects.get(user=user)
+                if user.is_deactivate:  # Check if the user is inactive
+                    user.is_deactivate = False
+                    reason.delete()
+                    user.save()
+                    # profile.save()
+                    reason.save()
+                    return Response({'message': 'Account activated successfully'}, status=status.HTTP_200_OK)
+                else:
+                    return Response({'detail': 'User is already active', 'code': 'user_already_active'}, status=status.HTTP_400_BAD_REQUEST)
+        except ObjectDoesNotExist:
+            return Response({'detail': 'Profile does not exist for this user'}, status=status.HTTP_404_NOT_FOUND)
 
 class DeleteAccountView(APIView):
     def post(self, request):
@@ -285,11 +299,3 @@ class DeleteAccountView(APIView):
             return Response({'message': 'Account deleted successfully'}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-# {
-#     "email":"test@user.com",
-#     "first_name":"test",
-#     "last_name":"user",
-#     "dob":"2000-02-13",
-#     "password":"test123",
-#     "password2":"test123"
-# }
