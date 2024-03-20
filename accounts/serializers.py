@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.sites.shortcuts import get_current_site
-from django.utils.encoding import force_bytes, force_str, DjangoUnicodeDecodeError
+from django.utils.encoding import force_bytes, smart_str, DjangoUnicodeDecodeError
 from .utils import send_reset_password_email
 
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError, AccessToken
@@ -76,7 +76,7 @@ class SetNewPasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError("Passwords do not match")
 
         try:
-            user_id = force_str(urlsafe_base64_decode(uidb64))
+            user_id = smart_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(id=user_id)
             if not PasswordResetTokenGenerator().check_token(user, token):
                 raise AuthenticationFailed("Reset link is invalid or has expired")
@@ -86,7 +86,7 @@ class SetNewPasswordSerializer(serializers.Serializer):
 
     def save(self):
         password = self.validated_data['password']
-        user_id = force_str(urlsafe_base64_decode(self.validated_data['uidb64']))
+        user_id = smart_str(urlsafe_base64_decode(self.validated_data['uidb64']))
         user = User.objects.get(id=user_id)
         user.set_password(password)
         user.save()
@@ -178,20 +178,3 @@ class DDConfirmActionAccountSerializer(serializers.Serializer):
             if not user.check_password(value):
                 raise serializers.ValidationError("Incorrect password")
         return value
-
-# class DeleteAccountSerializer(serializers.Serializer):
-#     reason = serializers.CharField(choices=REASON_CHOICES, max_length=500, required=False)
-#     comment = serializers.CharField(max_length=3000, required=False)
-#     password = serializers.CharField(required=True)
-#     # confirmation = serializers.BooleanField()
-
-#     # def validate_confirmation(self, value):
-#     #     if not value:
-#     #         raise serializers.ValidationError("Confirmation is required")
-#     #     return value
-    
-#     def validate_password(self, value):
-#         user = self.context['request'].user
-#         if not user.check_password(value):
-#             raise serializers.ValidationError("Incorrect password")
-#         return value
