@@ -132,7 +132,7 @@ class UserNameUpdateSerializer(serializers.ModelSerializer):
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['address', 'mobile_number', 'country', 'state', 'city', 'zip_code']
+        fields = "__all__"
 
 class MobileNumberSerializer(serializers.Serializer):
     mobile_number = serializers.CharField(max_length=15)
