@@ -1,9 +1,8 @@
 from datetime import timedelta, datetime
 from rest_framework import serializers
-from .models import User, Profile
+from .models import User
 
 from rest_framework.exceptions import AuthenticationFailed
-from django.contrib.auth import authenticate
 
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -124,28 +123,6 @@ class LogoutUserSerializer(serializers.Serializer):
         except TokenError as e:
             raise AuthenticationFailed(str(e))
         
-class UserNameUpdateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['user_name']
-        
-class ProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Profile
-        fields = "__all__"
-
-class MobileNumberSerializer(serializers.Serializer):
-    mobile_number = serializers.CharField(max_length=15)
-
-class AddressSerializer(serializers.Serializer):
-    address = serializers.CharField(max_length=255)
-    country = serializers.CharField(max_length=100)
-    state = serializers.CharField(max_length=100)
-    city = serializers.CharField(max_length=100)
-    zip_code = serializers.CharField(max_length=20)
-
-class EmailChangeSerializer(serializers.Serializer):
-    new_email = serializers.EmailField(max_length=255)
 
 class ActivateAccountSerializer(serializers.Serializer):
     confirmation = serializers.BooleanField()

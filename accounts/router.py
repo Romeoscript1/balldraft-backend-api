@@ -1,8 +1,8 @@
-from rest_framework import routers
+# from rest_framework import routers
 
-from accounts.viewsets import ProfileViewSet
+# from accounts.viewsets import ProfileViewSet
 
-app_name = 'accounts'
+# app_name = 'accounts'
 
-router = routers.DefaultRouter()
-router.register('profile', ProfileViewSet)
+# router = routers.DefaultRouter()
+# router.register('profile', ProfileViewSet)

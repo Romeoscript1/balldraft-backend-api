@@ -5,6 +5,6 @@ from contests.viewsets import ContestViewSet, ContestCategoryViewSet, ContestLev
 app_name = 'contests'
 
 router = routers.DefaultRouter()
-router.register('contests', ContestViewSet)
+router.register('', ContestViewSet)
 router.register('contests_cats', ContestCategoryViewSet)
 router.register('contests_levels', ContestLevelViewSet)

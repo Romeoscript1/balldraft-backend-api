@@ -7,13 +7,6 @@ from .views import (RegisterUserView,
                     LogoutUserView,
                     ResendCodeView,
                     login_view,
-                    ProfileView, 
-
-                    #update views
-                    MobileNumberView, 
-                    AddressView,
-                    UserNameUpdateView,
-                    EmailChangeView,
                     
                     ActivateAccountView,
                     DeactivateAccountView,
@@ -45,13 +38,6 @@ urlpatterns=[
     path('password-reset-confirm/<uidb64>/<token>/', PasswordResetConfirm.as_view(), name='password_reset_confirm'),
     path('set-new-password/', SetNewPassword.as_view(), name='set_new_password'),
     path('logout/', LogoutUserView.as_view(), name='logout'),
-    path('profile/', ProfileView.as_view(), name='profile'),
-
-    #update urls
-    path('profile/mobile-number/', MobileNumberView.as_view(), name='mobile-number'),
-    path('profile/address/', AddressView.as_view(), name='address'),
-    path('update-username/', UserNameUpdateView.as_view(), name='update-username'),
-    path('change-email/', EmailChangeView.as_view(), name='change-email'),
 
     path('account/deactivate/', DeactivateAccountView.as_view(), name='deactivate-account'),
     path('account/activate/', ActivateAccountView.as_view(), name='activate-account'),
