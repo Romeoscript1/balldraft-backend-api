@@ -19,7 +19,7 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -34,8 +34,12 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
+
     'accounts',
+    'profiles',
+    'contests',
     'social_accounts',
+
     'corsheaders',
 
     'drf_yasg',
