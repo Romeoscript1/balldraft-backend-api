@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from .managers import UserManager
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from contests.models import Contest
+# from contests.models import Contest
 
 
 AUTH_PROVIDERS={

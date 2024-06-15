@@ -1,5 +1,5 @@
 from django.contrib import admin
-from contests.models import Contest, ContestCategory, ContestLevel
+# from contests.models import Contest, ContestCategory, ContestLevel
 
 class ContestCategoryAdmin(admin.ModelAdmin):
     list_display = ('name')
@@ -13,6 +13,6 @@ class ContestAdmin(admin.ModelAdmin):
     list_display = ('title')
     prepopulated_fields = {'slug':('title',) }
 
-admin.site.register(ContestLevel)
-admin.site.register(Contest)
-admin.site.register(ContestCategory)
+# admin.site.register(ContestLevel)
+# admin.site.register(Contest)
+# admin.site.register(ContestCategory)
