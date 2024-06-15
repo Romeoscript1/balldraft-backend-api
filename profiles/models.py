@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.deconstruct import deconstructible
 
 from accounts.models import User
-from contests.models import Contest
+# from contests.models import Contest
 
 @deconstructible
 class GenerateProfileImagePath(object):
@@ -33,18 +33,18 @@ class Profile(models.Model):
     
     image = models.FileField(upload_to=user_profile_image_path, blank=True, null=True)
 
-    contests = models.ManyToManyField(Contest, through='ContestEntry', related_name='participants', blank=True)
+    # contests = models.ManyToManyField(Contest, through='ContestEntry', related_name='participants', blank=True)
 
     def __str__(self):
         return self.username + "'s Profile"
 
-class ContestEntry(models.Model):
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    contest = models.ForeignKey(Contest, on_delete=models.CASCADE)
-    entry_time = models.DateTimeField(auto_now_add=True)
+# class ContestEntry(models.Model):
+#     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
+#     # contest = models.ForeignKey(Contest, on_delete=models.CASCADE)
+#     entry_time = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        unique_together = ('profile', 'contest', 'entry_time')  # Ensure uniqueness of entries
+#     class Meta:
+#         unique_together = ('profile', 'contest', 'entry_time')  # Ensure uniqueness of entries
 
-    def __str__(self):
-        return f"{self.profile.username} entered {self.contest} at {self.entry_time}"
+#     def __str__(self):
+#         return f"{self.profile.username} entered {self.contest} at {self.entry_time}"

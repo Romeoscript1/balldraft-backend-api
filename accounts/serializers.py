@@ -13,6 +13,7 @@ from .utils import send_reset_password_email
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError, AccessToken
 
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(max_length=68, min_length=8, write_only=True)
@@ -29,7 +30,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Passwords do not match")
         try:
             validate_password(password)
-        except serializers.ValidationError as e:
+        except DjangoValidationError as e:
             raise serializers.ValidationError({'password': e.messages})
         return attrs
 
