@@ -41,6 +41,7 @@ class RegisterUserView(GenericAPIView):
                 'data': serializer.data,
                 'message': f'Welcome {user.first_name} to Balldraft. Thanks for signing up. Check your mail for your passcode.'
             }, status=status.HTTP_200_OK)
+        print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
 
@@ -91,12 +92,12 @@ class ResendCodeView(GenericAPIView):
                 send_code_to_user(email)  
                 return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
             else:
-                return Response({"message": "OTP is still valid"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "OTP is still valid"}, status=status.HTTP_400_BAD_REQUEST)
         except OneTimePassword.DoesNotExist:
             send_code_to_user(email) 
             return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({"message": "Failed to send new OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": "Failed to send new OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def is_otp_expired(self, otp_obj):
         current_time = timezone.now()
@@ -113,7 +114,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         if response.status_code == status.HTTP_200_OK:
             user = User.objects.filter(email=request.data.get('email')).first()
             if user and not user.is_verified:
-                raise AuthenticationFailed('Email is not verified')
+                raise AuthenticationFailed({"error": 'Email is not verified'})
         return response
 
 login_view = CustomTokenObtainPairView.as_view()
@@ -133,9 +134,9 @@ class PasswordResetConfirm(GenericAPIView):
             if PasswordResetTokenGenerator().check_token(user, token):
                 return Response({'message': 'Credentials are valid', 'uidb64': uidb64, 'token': token})
             else:
-                return Response({'message': 'Token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'error': 'Token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
         except (TypeError, ValueError, DjangoUnicodeDecodeError, User.DoesNotExist):
-            return Response({'message': 'Token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'error': 'Token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
 
 class SetNewPassword(GenericAPIView):
     serializer_class = SetNewPasswordSerializer
@@ -191,9 +192,9 @@ class ActivateAccountView(APIView):
                     reason.save()
                     return Response({'message': 'Account activated successfully'}, status=status.HTTP_200_OK)
                 else:
-                    return Response({'detail': 'User is already active', 'code': 'user_already_active'}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'error': 'User is already active', 'code': 'user_already_active'}, status=status.HTTP_400_BAD_REQUEST)
         except ObjectDoesNotExist:
-            return Response({'detail': 'Profile does not exist for this user'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': 'Profile does not exist for this user'}, status=status.HTTP_404_NOT_FOUND)
 
 class DeleteAccountView(APIView):
     def post(self, request):

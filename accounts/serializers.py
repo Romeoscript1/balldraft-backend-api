@@ -26,12 +26,15 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         password = attrs.get('password')
         confirm_password = attrs.pop('confirm_password', None)
+        email = attrs.get('email')
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({"error": "user with this Email Address already exists."})
         if password != confirm_password:
-            raise serializers.ValidationError("Passwords do not match")
+            raise serializers.ValidationError({"error": "Passwords do not match"})
         try:
             validate_password(password)
         except DjangoValidationError as e:
-            raise serializers.ValidationError({'password': e.messages})
+            raise serializers.ValidationError({'error': e.messages})
         return attrs
 
     def create(self, validated_data):
@@ -73,16 +76,16 @@ class SetNewPasswordSerializer(serializers.Serializer):
         token = attrs.get('token')
         
         if password != confirm_password:
-            raise serializers.ValidationError("Passwords do not match")
+            raise serializers.ValidationError({"error":"Passwords do not match"})
 
         try:
             user_id = force_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(id=user_id)
             if not PasswordResetTokenGenerator().check_token(user, token):
-                raise AuthenticationFailed("Reset link is invalid or has expired")
+                raise AuthenticationFailed({"error": "Reset link is invalid or has expired"})
             return attrs
         except (TypeError, ValueError, DjangoUnicodeDecodeError, User.DoesNotExist):
-            raise AuthenticationFailed("Reset link is invalid or has expired")
+            raise AuthenticationFailed({"error": "Reset link is invalid or has expired"})
 
     def save(self):
         password = self.validated_data['password']
@@ -101,9 +104,9 @@ class LogoutUserSerializer(serializers.Serializer):
         access_token = attrs.get('access_token')
 
         if not refresh_token:
-            raise serializers.ValidationError("Refresh token is required")
+            raise serializers.ValidationError({"error": "Refresh token is required"})
         if not access_token:
-            raise serializers.ValidationError("Access token is required")
+            raise serializers.ValidationError({"error": "Access token is required"})
 
         return attrs
 
@@ -130,7 +133,7 @@ class ActivateAccountSerializer(serializers.Serializer):
 
     def validate_confirmation(self, value):
         if not value:
-            raise serializers.ValidationError("Confirmation is required")
+            raise serializers.ValidationError({"error": "Confirmation is required"})
         return value
 
 REASON_CHOICES = [
@@ -154,7 +157,7 @@ class DDConfirmActionAccountSerializer(serializers.Serializer):
         if self.request:
             user = self.request.user
             if not user.check_password(value):
-                raise serializers.ValidationError("Incorrect password")
+                raise serializers.ValidationError({"error": "Incorrect password"})
         return value
 
 # class DeleteAccountSerializer(serializers.Serializer):
