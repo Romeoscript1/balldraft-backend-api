@@ -26,18 +26,16 @@ schema_view = get_schema_view(
 #     path('contests/', include(contests_api_router.router.urls))
 # ]
 
-profile_url_patterns = [
-    path('profile/', include(profile_api_router.router.urls))
-]
+# profile_url_patterns = [
+#     path('profile/', include(profile_api_router.router.urls))
+# ]
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/auth/', include('accounts.urls')),
     path('api/v1/auth/', include('social_accounts.urls')),
     path('api/v1/profile/', include('profiles.urls')),
-    # path('api/v1/contest/', include('contests.urls')),
-    # path('api/v1/', include(contests_url_patterns)),
-    path('api/v1/', include(profile_url_patterns)),
+
     #documentation url
     path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),

@@ -4,7 +4,7 @@ from .serializers import (
     PasswordResetRequestSerializer, 
     SetNewPasswordSerializer,
     LogoutUserSerializer,
-    DDConfirmActionAccountSerializer,)
+    DDConfirmActionAccountSerializer, OTPSerializer)
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import AllowAny
@@ -23,6 +23,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils import timezone
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
+from drf_yasg.utils import swagger_auto_schema
 
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
@@ -31,6 +32,7 @@ User = get_user_model()
 class RegisterUserView(GenericAPIView):
     serializer_class = UserRegisterSerializer
 
+    @swagger_auto_schema(request_body=UserRegisterSerializer)
     @transaction.atomic
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
@@ -47,7 +49,8 @@ class RegisterUserView(GenericAPIView):
 
 class VerifyUserEmail(GenericAPIView):
     OTP_EXPIRATION_TIME_SECONDS = 90
-
+    
+    @swagger_auto_schema(request_body=OTPSerializer)
     def post(self, request):
         otp_code = request.data.get('otp')
         try:

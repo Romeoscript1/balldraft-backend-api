@@ -1,6 +1,6 @@
 from datetime import timedelta, datetime
 from rest_framework import serializers
-from .models import User
+from .models import User, OneTimePassword
 
 from rest_framework.exceptions import AuthenticationFailed
 
@@ -41,6 +41,11 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('confirm_password', None)
         return User.objects.create_user(**validated_data)
 
+class OTPSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OneTimePassword
+        fields = ['code']
+        
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=255, min_length=6)
 

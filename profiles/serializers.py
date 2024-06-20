@@ -4,7 +4,8 @@ from profiles.models import Profile
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = "__all__"
+        fields = ["username","address","mobile_number", "bank", "account_number", "account_name"]
+
 
 class UserNameUpdateSerializer(serializers.ModelSerializer):
     class Meta:
