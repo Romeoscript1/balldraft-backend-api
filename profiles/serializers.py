@@ -7,3 +7,6 @@ class ProfileSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 # ["username","address","mobile_number", "bank", "account_number", "account_name"]
+
+class EmailChangeSerializer(serializers.Serializer):
+    new_email = serializers.EmailField(max_length=255)
