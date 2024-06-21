@@ -52,6 +52,11 @@ class EmailChangeView(UpdateAPIView):
 
         user.email = new_email
         user.save()
+        
+        # Update the email in the Profile model
+        profile = Profile.objects.get(user=user)
+        profile.email = new_email
+        profile.save()
 
         return Response({'detail': 'Email updated successfully'}, status=status.HTTP_200_OK)
 

@@ -161,6 +161,10 @@ class LogoutUserView(GenericAPIView):
         return Response({"message": "Logout successful"}, status=status.HTTP_200_OK)
 
 class DeactivateAccountView(APIView):
+    serializer_class = DDConfirmActionAccountSerializer
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(request_body=DDConfirmActionAccountSerializer)
     def post(self, request):
         serializer = DDConfirmActionAccountSerializer(data=request.data)
         if serializer.is_valid():
