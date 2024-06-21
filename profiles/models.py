@@ -22,7 +22,7 @@ user_profile_image_path = GenerateProfileImagePath()
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    fullname = models.CharField(max_length=101, unique=True, blank=True, null=True, verbose_name=_("User Name"))
+    username = models.CharField(max_length=101, unique=True, blank=True, null=True, verbose_name=_("User Name"))
     email = models.CharField(max_length=101, unique=True, blank=True, null=True, verbose_name=_("User Name"))
     dob = models.DateField(null=True, blank=True)
     address = models.TextField(blank=True, null=True)
