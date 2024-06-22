@@ -1,3 +1,6 @@
 .venv
 temp3DB
 
+venv/
+key.pem
+.env
