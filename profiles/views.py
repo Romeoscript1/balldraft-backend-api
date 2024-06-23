@@ -6,15 +6,17 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser
-
+from accounts.views import VerifyUserEmail
 from profiles.serializers import (
-                                ProfileSerializer, EmailChangeSerializer, ReferralSerializer,NotificationSerializer)
+                                ProfileSerializer, EmailChangeSerializer, ReferralSerializer,NotificationSerializer, PaymentSerializer, PaymentVerifySerializer)
 from profiles.models import *
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from paystackapi.transaction import Transaction
+import uuid
 
 
 def send_email(subject,body,recipient):
@@ -40,8 +42,71 @@ def send_email(subject,body,recipient):
     email.send()
 
 
+import logging
 
-from accounts.views import VerifyUserEmail
+logger = logging.getLogger(__name__)
+
+class PaymentCreateView(generics.CreateAPIView):
+    serializer_class = PaymentSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(request_body=PaymentSerializer)
+    def create(self, request, *args, **kwargs):
+        profile = request.user.profile
+        ngn_amount = request.data.get('ngn_amount')
+        
+        # debugging to check if amount is null
+        if ngn_amount is None:
+            return Response({'error': 'ngn_amount is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+        # Generate unique reference
+        reference = str(uuid.uuid4())
+
+        # Create payment record
+        payment = Payment.objects.create(profile=profile, ngn_amount=ngn_amount, reference=reference)
+
+        # Initialize Paystack transaction
+        transaction = Transaction.initialize(reference=reference, amount=int(ngn_amount) * 100, email=request.user.email, callback_url='http://127.0.0.1/docs/')
+        logger.debug(transaction)  # Log the Paystack response
+
+        if not transaction['status']:
+            payment.delete()
+            return Response({'error': 'Unable to create Paystack transaction', 'details': transaction}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'payment_url': transaction['data']['authorization_url']}, status=status.HTTP_201_CREATED)
+    
+
+class PaymentVerifyView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(request_body=PaymentVerifySerializer)
+    def post(self, request, *args, **kwargs):
+        reference = request.data.get('reference')
+        try:
+            payment = Payment.objects.get(reference=reference, profile=request.user.profile)
+        except Payment.DoesNotExist:
+            return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Verify Paystack transaction
+        response = Transaction.verify(reference)
+        if not response['status']:
+            return Response({'error': 'Unable to verify Paystack transaction'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update payment status
+        if response['data']['status'] == 'success':
+            payment.status = 'success'
+            payment.profile.account_balance += float(payment.ngn_amount)
+            payment.profile.save()
+        else:
+            payment.status = 'failed'
+        payment.save()
+
+        return Response({'status': payment.status}, status=status.HTTP_200_OK)
+
+
+
+
 class ProfileView(RetrieveUpdateAPIView):
     serializer_class = ProfileSerializer
     permission_classes = [IsAuthenticated]

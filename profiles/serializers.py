@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from profiles.models import Profile, Notification, Referral
+from profiles.models import Profile, Notification, Referral,Payment
 
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -45,3 +45,14 @@ class ReferralSerializer(serializers.ModelSerializer):
         referrer_profile.save()
         
         return referral
+    
+    
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ['id', 'ngn_amount', 'reference', 'status', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'reference', 'status', 'created_at', 'updated_at']
+
+
+class PaymentVerifySerializer(serializers.Serializer):
+    reference = serializers.CharField(max_length=100)

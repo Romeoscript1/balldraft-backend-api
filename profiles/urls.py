@@ -11,6 +11,9 @@ urlpatterns=[
     path('referrals', ReferralListView.as_view(), name='referral-list'),
     path('referrals/create', ReferralCreateView.as_view(), name='referral-create'),
     path('referrals/<int:pk>', ReferralDetailView.as_view(), name='referral-detail'),
+    path('payments/create', PaymentCreateView.as_view(), name='payment-create'),
+    path('payments/verify', PaymentVerifyView.as_view(), name='payment-verify'),
+
 
    
 ]
