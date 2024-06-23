@@ -5,7 +5,7 @@ from profiles.models import Profile, Notification
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = "__all__"
+        fields = ['username', 'full_name', 'dob', 'email', 'address', 'mobile_number', 'bank', 'account_number', 'account_name', 'account_balance', 'pending_balance']
 
 class EmailChangeSerializer(serializers.Serializer):
     new_email = serializers.EmailField(max_length=255)

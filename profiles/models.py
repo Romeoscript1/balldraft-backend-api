@@ -54,8 +54,8 @@ user_profile_image_path = GenerateProfileImagePath()
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     username = models.CharField(max_length=101, unique=True, blank=True, null=True, verbose_name=_("User Name"))
-    email = models.CharField(max_length=101, unique=True, blank=True, null=True, verbose_name=_("User Name"))
-    dob = models.DateField(null=True, blank=True)
+    # email = models.CharField(max_length=101, unique=True, blank=True, null=True, verbose_name=_("User Name"))
+    # dob = models.DateField(null=True, blank=True)
     address = models.TextField(blank=True, null=True)
     mobile_number = models.CharField(max_length=15, blank=True, null=True)
     bank = models.CharField(max_length=100, null=True, blank=True)
@@ -65,6 +65,18 @@ class Profile(models.Model):
     pending_balance = models.FloatField(default=0.00)
     
     image = models.FileField(upload_to=user_profile_image_path, blank=True, null=True)
+
+    @property
+    def full_name(self):
+        return f"{self.user.first_name} {self.user.last_name}"
+    
+    @property
+    def dob(self):
+        return f"{self.user.dob}"
+    
+    @property
+    def email(self):
+        return f"{self.user.email}"
 
     def __str__(self):
         return self.username + "'s Profile"
