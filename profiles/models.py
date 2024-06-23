@@ -36,7 +36,15 @@ def send_email(subject,body,recipient):
     email.send()
 
 
+class Notification(models.Model):
+    profile = models.ForeignKey(Profile,on_delete=models.CASCADE)
+    action = models.TextField(blank=True,null=True)
+    time = models.DateTimeField(auto_now_add=True)
+    action_title = models.CharField(max_length=100,blank=True,null=True)
+    read = models.BooleanField(default=False)
 
+    def __str__(self):
+        return f'{self.profile.username} - {self.action}'
 
 @deconstructible
 class GenerateProfileImagePath(object):
@@ -71,16 +79,14 @@ class Profile(models.Model):
         return self.username + "'s Profile"
 
 
-
-    
 class Bonus(models.Model):
-    profile = models.ForeignKey(Profile,on_delete=models.CASCADE)
-    username = models.CharField(null=True,blank=True,max_length=200)
+    profile = models.ForeignKey('Profile', on_delete=models.CASCADE)
+    username = models.CharField(null=True, blank=True, max_length=200)
     ngn_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    reason = models.TextField(blank=True,null=True)
+    reason = models.TextField(blank=True, null=True)
     seen = models.BooleanField(default=False)
     user_see = models.BooleanField(default=True)
-    time = models.DateTimeField(auto_now_add=True,null=True,blank=True)
+    time = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     verified = models.BooleanField(default=True)
     
     def __str__(self):
@@ -92,45 +98,56 @@ class Bonus(models.Model):
             Dear {self.username},
             {self.reason}
             Note: You can deposit, withdraw, enter contest, and transfer funds in and out of your balldraft account without any transaction fees.
-            For any issues with our services, please contact balldraft@balldraft.com"""
-            send_email(f"${self.ngn_amount} Free Bonus  | balldraft Fantasy", body,  self.profile.user.email)
+            For any issues with our services, please contact support@balldraft.com"""
+            send_email(f"${self.ngn_amount} Free Bonus  | balldraft Fantasy", body, self.profile.user.email)
             
-            ## credit to their account 
-            self.profile.account_balance += self.ngn_amount
+            # Credit to their account
             self.profile.account_balance += self.ngn_amount
             self.profile.save()
+
+            # Create a notification
+            Notification.objects.create(
+                profile=self.profile,
+                action=f"Bonus of {self.ngn_amount} has been credited to your account.",
+                action_title="Bonus Credited"
+            )
             
         super().save(*args, **kwargs)
-    
+
 class Penalty(models.Model):
-    profile = models.ForeignKey(Profile,on_delete=models.CASCADE)
-    username = models.CharField(null=True,blank=True,max_length=200)
+    profile = models.ForeignKey('Profile', on_delete=models.CASCADE)
+    username = models.CharField(null=True, blank=True, max_length=200)
     ngn_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    reason = models.TextField(blank=True,null=True)
+    reason = models.TextField(blank=True, null=True)
     seen = models.BooleanField(default=False)
     user_see = models.BooleanField(default=True)
-    time = models.DateTimeField(auto_now_add=True,null=True,blank=True)
+    time = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     verified = models.BooleanField(default=True)
     
     def __str__(self):
-        return f'{self.profile.username} has been givn a penalty of {self.ngn_amount}'
+        return f'{self.profile.username} has been given a penalty of {self.ngn_amount}'
     
     def save(self, *args, **kwargs):
         if self.verified:
             body = f"""
             Dear {self.username},
             {self.reason}
+            For further complains or enquiry, kindly contact support@balldraft.com"""
+            send_email(f"${self.ngn_amount} Penalty Withdrawn from your account | balldraft Fantasy", body, self.profile.user.email)
             
-            . For further complains or enquiry, kindly contact balldraft@balldraft.com"""
-            send_email(f"${self.ngn_amount}  Penalty Withdrawn from your account  | balldraft Fantasy", body,  self.profile.user.email)
-            
-            ## minus to their account
+            # Deduct from their account
             self.profile.available_balance -= self.ngn_amount
             self.profile.save()
+
+            # Create a notification
+            Notification.objects.create(
+                profile=self.profile,
+                action=f"Penalty of {self.ngn_amount} has been deducted from your account.",
+                action_title="Penalty Deducted"
+            )
         
         super().save(*args, **kwargs)
-  
-  
+        
 class Notification(models.Model):
     profile = models.ForeignKey(Profile,on_delete=models.CASCADE)
     action = models.TextField(blank=True,null=True)
