@@ -8,9 +8,12 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser
 from accounts.views import VerifyUserEmail
 from profiles.serializers import (
-                                ProfileSerializer, EmailChangeSerializer, ReferralSerializer,NotificationSerializer, PaymentSerializer, PaymentVerifySerializer)
+                                ProfileSerializer, EmailChangeSerializer, WithdrawSerializer, ReferralSerializer,NotificationSerializer, PaymentSerializer, PaymentVerifySerializer)
 from profiles.models import *
-
+from paystackapi.paystack import Paystack
+from paystackapi.transaction import Transaction
+from paystackapi.transfer import Transfer
+from paystackapi.paystack import TransferRecipient
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
@@ -42,9 +45,140 @@ def send_email(subject,body,recipient):
     email.send()
 
 
-import logging
 
-logger = logging.getLogger(__name__)
+
+
+paystack = Paystack(secret_key=settings.PAYSTACK_SECRET_KEY)
+class WithdrawCreateView(generics.CreateAPIView):
+    serializer_class = WithdrawSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(request_body=WithdrawSerializer)
+    def create(self, request, *args, **kwargs):
+        profile = request.user.profile
+        ngn_amount = request.data.get('ngn_amount')
+        bank_name = request.data.get('bank_name')
+        account_number = request.data.get('account_number')
+        comment = request.data.get('comment')
+
+        if not ngn_amount or not bank_name or not account_number:
+            return Response({'error': 'ngn_amount, bank_name, and account_number are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if profile.account_balance < float(ngn_amount):
+            return Response({'error': 'Insufficient balance'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create transfer recipient
+        recipient_data = {
+            "type": "nuban",
+            "name": profile.username,
+            "account_number": account_number,
+            "bank_code": self.get_bank_code(bank_name),
+            "currency": "NGN"
+        }
+        recipient_response = TransferRecipient.create(**recipient_data)
+        if not recipient_response['status']:
+            return Response({'error': 'Unable to create transfer recipient', 'details': recipient_response['message']}, status=status.HTTP_400_BAD_REQUEST)
+
+        recipient_code = recipient_response['data']['recipient_code']
+
+        # Create payment record
+        reference = str(uuid.uuid4())
+        print(reference)
+        withdrawal = Withdraw.objects.create(
+            profile=profile,
+            ngn_amount=ngn_amount,
+            bank_name=bank_name,
+            account_number=account_number,
+            comment=comment,
+            reference=reference
+        )
+
+        # Initialize Paystack transfer
+        transfer_data = {
+            "source": "balance",
+            "reason": "Withdrawal to bank account",
+            "amount": int(float(ngn_amount) * 100),
+            "recipient": recipient_code,
+            "reference": reference
+        }
+        transfer_response = paystack.transfer.initiate(**transfer_data)
+
+        if not transfer_response['status']:
+            withdrawal.delete()
+            return Response({'error': 'Unable to initiate Paystack transfer', 'details': transfer_response['message']}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update profile balance
+        profile.account_balance -= float(ngn_amount)
+        profile.save()
+
+        return Response({'message': 'Withdrawal request created successfully'}, status=status.HTTP_201_CREATED)
+
+    def get_bank_code(self, bank_name):
+        bank_codes = {
+            'Access Bank': '044',
+        'Citibank Nigeria': '023',
+        'Diamond Bank': '063',
+        'Ecobank Nigeria': '050',
+        'Fidelity Bank': '070',
+        'First Bank of Nigeria': '011',
+        'First City Monument Bank': '214',
+        'Guaranty Trust Bank': '058',
+        'Heritage Bank': '030',
+        'Keystone Bank': '082',
+        'Polaris Bank': '076',
+        'Providus Bank': '101',
+        'Stanbic IBTC Bank': '221',
+        'Standard Chartered Bank': '068',
+        'Sterling Bank': '232',
+        'Suntrust Bank': '100',
+        'Union Bank of Nigeria': '032',
+        'United Bank for Africa': '033',
+        'Unity Bank': '215',
+        'Wema Bank': '035',
+        'Zenith Bank': '057',
+        'AB Microfinance Bank': '090134',
+        'Addosser Microfinance Bank': '090135',
+        'BoI Microfinance Bank': '090136',
+        'Fina Trust Microfinance Bank': '090137',
+        'Fortis Microfinance Bank': '090138',
+        'Lapo Microfinance Bank': '090139',
+        'Mainstreet Microfinance Bank': '090140',
+        'Microcred Microfinance Bank': '090141',
+        'Mutual Trust Microfinance Bank': '090142',
+        'NPF Microfinance Bank': '090143',
+        'Seed Capital Microfinance Bank': '090144',
+        'Sparkle Microfinance Bank': '090145',
+        'VFD Microfinance Bank': '090146',
+        'Opay': '305',
+        'Palmpay': '311',
+        'Kuda': '50211',
+        'Moniepoint': '50515'
+            
+        }
+        return bank_codes.get(bank_name, None)
+    
+    
+
+class WithdrawVerifyView(generics.UpdateAPIView):
+    serializer_class = WithdrawSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Withdraw.objects.all()
+    lookup_field = 'reference'
+
+    @swagger_auto_schema(request_body=PaymentVerifySerializer)
+    def update(self, request, *args, **kwargs):
+        withdrawal = self.get_object()
+
+        if not withdrawal.verified:
+            reference = request.data.get('reference')
+            try:
+                withdraw = withdrawal.objects.get(reference=reference, profile=request.user.profile)
+                return Response({'error': 'Withdrawal request not found'}, status=status.HTTP_404_NOT_FOUND)
+            except Withdraw.DoesNotExist:
+                return Response({'error': 'Withdrawal does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            return Response({'message': 'Withdrawal is already verified'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class PaymentCreateView(generics.CreateAPIView):
     serializer_class = PaymentSerializer

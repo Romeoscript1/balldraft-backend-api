@@ -13,6 +13,8 @@ urlpatterns=[
     path('referrals/<int:pk>', ReferralDetailView.as_view(), name='referral-detail'),
     path('payments/create', PaymentCreateView.as_view(), name='payment-create'),
     path('payments/verify', PaymentVerifyView.as_view(), name='payment-verify'),
+    path('withdrawals/create', WithdrawCreateView.as_view(), name='withdrawal-create'),
+    path('withdrawals/verify/<str:reference>', WithdrawVerifyView.as_view(), name='withdrawal-verify'),
 
 
    
