@@ -1,14 +1,15 @@
 from rest_framework.generics import RetrieveUpdateAPIView, UpdateAPIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated 
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser
 
 from profiles.serializers import (
-                                ProfileSerializer, EmailChangeSerializer)
-from profiles.models import Profile
+                                ProfileSerializer, EmailChangeSerializer, ReferralSerializer,NotificationSerializer)
+from profiles.models import *
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -64,11 +65,6 @@ class ProfileView(RetrieveUpdateAPIView):
     def patch(self, request, *args, **kwargs):
         return self.put(request, *args, **kwargs)
 
-from rest_framework import generics, status
-from rest_framework.response import Response
-from rest_framework.decorators import api_view
-from .models import Notification
-from .serializers import NotificationSerializer
 
 class NotificationListView(generics.ListAPIView):
     serializer_class = NotificationSerializer
@@ -126,3 +122,34 @@ class EmailChangeView(UpdateAPIView):
     @swagger_auto_schema(request_body=EmailChangeSerializer)
     def patch(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
+    
+    
+class ReferralListView(generics.ListAPIView):
+    serializer_class = ReferralSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Referral.objects.filter(profile=self.request.user.profile)
+
+class ReferralCreateView(generics.CreateAPIView):
+    serializer_class = ReferralSerializer
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(request_body=ReferralSerializer)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def perform_create(self, serializer):
+        serializer.save()
+
+class ReferralDetailView(generics.RetrieveAPIView):
+    serializer_class = ReferralSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'pk'
+
+    def get_queryset(self):
+        return Referral.objects.filter(profile=self.request.user.profile) 
