@@ -179,15 +179,12 @@ class Penalty(models.Model):
 class Deposit(models.Model):
     profile = models.ForeignKey(Profile,on_delete=models.CASCADE)
     time = models.DateTimeField(auto_now_add=True)
-    amount = models.DecimalField(max_digits=20,decimal_places=5,blank=True,null=True)
-    bank_name  = models.CharField(max_length=50,blank=True,null=True)
-    account_number = models.CharField(max_length=100,blank=True,null=True)
     ngn_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     verified = models.BooleanField(default=False)
     objects = models.Manager()
 
     def __str__(self):
-        return f'{self.profile.user.username} has deposited this {self.amount}-{self.verified}'
+        return f'{self.profile.username} has deposited this {self.ngn_amount}-{self.verified}'
 
     from django.db.models import Sum
     @classmethod
@@ -205,43 +202,63 @@ class Deposit(models.Model):
     def save(self, *args, **kwargs):
         Notification.objects.create(
                 profile=self.profile,
-                action=f"Penalty of {self.ngn_amount} has been deposited into your account.",
+                action=f"Deposit of {self.ngn_amount} has been deposited into your account.",
                 action_title=f"{self.ngn_amount} NGN Deposit"
             )
         return super().save(*args, **kwargs)
 
 
+class Payment(models.Model):
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    ngn_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    reference = models.CharField(max_length=100, unique=True)
+    status = models.CharField(max_length=20, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'Payment {self.reference} - {self.status}'
+    
+    def save(self, *args, **kwargs):
+        Deposit.objects.create(
+                profile=self.profile,
+                 ngn_amount = self.ngn_amount,
+                verified = False
+            )
+        return super().save(*args, **kwargs)
+    
+
 
 class Withdraw(models.Model):
     profile = models.ForeignKey(Profile,on_delete=models.CASCADE)
     time = models.DateTimeField(auto_now_add=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     bank_name  = models.CharField(max_length=50,blank=True,null=True)
     account_number = models.CharField(max_length=100,blank=True,null=True)
     ngn_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     verified = models.BooleanField(default=False)
+    reference = models.CharField(max_length=100, unique=True, null=True)
     comment =  models.CharField(max_length=100,blank=True,null=True)
     objects = models.Manager()
 
     def __str__(self):
-        return f'{self.profile.user.username} has withdrawn this {self.amount}-{self.verified}'
+        return f'{self.profile.username} has withdrawn this {self.ngn_amount}-{self.verified}'
 
     @classmethod
     def total_amount(cls):
         return cls.objects.aggregate(models.Sum('ngn_amount'))['ngn_amount__sum']
     @classmethod
     def total_verified_amount(cls):
-        return cls.objects.filter(verified=True).aggregate(Sum('amount'))['amount__sum'] or 0
+        return cls.objects.filter(verified=True).aggregate(Sum('ngn_amount'))['ngn_amount__sum'] or 0
 
     @classmethod
     def total_unverified_amount(cls):
-        return cls.objects.filter(verified=False).aggregate(Sum('amount'))['amount__sum'] or 0
+        return cls.objects.filter(verified=False).aggregate(Sum('ngn_amount'))['ngn_amount__sum'] or 0
 
 
     def save(self, *args, **kwargs):
         Notification.objects.create(
                 profile=self.profile,
-                action=f"Penalty of {self.ngn_amount} has been withdrawn into your bank account.",
+                action=f"Withdrawl of {self.ngn_amount} has been sent to your withdrawal method.",
                 action_title=f"{self.ngn_amount} NGN Withdrawal"
             )
         return super().save(*args, **kwargs)
