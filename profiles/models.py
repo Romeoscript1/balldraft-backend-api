@@ -187,6 +187,11 @@ class Deposit(models.Model):
         return cls.objects.filter(verified=False).aggregate(Sum('ngn_amount'))['ngn_amount__sum'] or 0
 
     def save(self, *args, **kwargs):
+        Notification.objects.create(
+                profile=self.profile,
+                action=f"Penalty of {self.ngn_amount} has been deposited into your account.",
+                action_title=f"{self.ngn_amount} NGN Deposit"
+            )
         return super().save(*args, **kwargs)
 
 
@@ -218,6 +223,11 @@ class Withdraw(models.Model):
 
 
     def save(self, *args, **kwargs):
+        Notification.objects.create(
+                profile=self.profile,
+                action=f"Penalty of {self.ngn_amount} has been withdrawn into your bank account.",
+                action_title=f"{self.ngn_amount} NGN Withdrawal"
+            )
         return super().save(*args, **kwargs)
 
 
