@@ -88,6 +88,17 @@ def mark_as_read(request, pk):
     return Response({'status': 'Notification marked as read'}, status=status.HTTP_200_OK)
 
 
+@api_view(['DELETE'])
+def delete_notification(request, pk):
+    try:
+        notification = Notification.objects.get(pk=pk, profile=request.user.profile)
+    except Notification.DoesNotExist:
+        return Response({'error': 'Notification not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    notification.delete()
+    return Response({'status': 'Notification deleted'}, status=status.HTTP_200_OK)
+
+
 class EmailChangeView(UpdateAPIView):
     serializer_class = EmailChangeSerializer
     permission_classes = [IsAuthenticated]
