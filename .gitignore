@@ -1,6 +1,8 @@
 .venv
 temp3DB
+temp3DB.sql
 
 venv/
 key.pem
 .env
+.gitignore

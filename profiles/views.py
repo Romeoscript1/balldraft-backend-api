@@ -10,6 +10,36 @@ from profiles.serializers import (
                                 ProfileSerializer, EmailChangeSerializer)
 from profiles.models import Profile
 
+from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+
+
+def send_email(subject,body,recipient):
+    name = "Balldraft Fantasy"
+    address = "Balldraft Fantasy Club"
+    phone_number = "support@balldraft.com"
+    context ={
+        "subject": subject,
+        "body":body,
+        "name": name,
+        "address": address,
+        "phone_number":phone_number
+        }
+    html_content = render_to_string("emails.html", context)
+    text_content = strip_tags(html_content)
+    email = EmailMultiAlternatives(
+        subject,
+        text_content,
+        settings.EMAIL_HOST_USER ,
+        [recipient]
+    )
+    email.attach_alternative(html_content, 'text/html')
+    email.send()
+
+
+
 from accounts.views import VerifyUserEmail
 class ProfileView(RetrieveUpdateAPIView):
     serializer_class = ProfileSerializer
@@ -34,6 +64,39 @@ class ProfileView(RetrieveUpdateAPIView):
     def patch(self, request, *args, **kwargs):
         return self.put(request, *args, **kwargs)
 
+from rest_framework import generics, status
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from .models import Notification
+from .serializers import NotificationSerializer
+
+class NotificationListView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+
+    def get_queryset(self):
+        return Notification.objects.filter(profile=self.request.user.profile).order_by('-time')
+
+@api_view(['POST'])
+def mark_as_read(request, pk):
+    try:
+        notification = Notification.objects.get(pk=pk, profile=request.user.profile)
+    except Notification.DoesNotExist:
+        return Response({'error': 'Notification not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    notification.read = True
+    notification.save()
+    return Response({'status': 'Notification marked as read'}, status=status.HTTP_200_OK)
+
+
+@api_view(['DELETE'])
+def delete_notification(request, pk):
+    try:
+        notification = Notification.objects.get(pk=pk, profile=request.user.profile)
+    except Notification.DoesNotExist:
+        return Response({'error': 'Notification not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    notification.delete()
+    return Response({'status': 'Notification deleted'}, status=status.HTTP_200_OK)
 
 
 class EmailChangeView(UpdateAPIView):
