@@ -4,7 +4,39 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.deconstruct import deconstructible
 
 from accounts.models import User
-# from contests.models import Contest
+from django.utils.timezone import now
+from django.contrib.auth import get_user_model
+from datetime import date
+from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+
+
+def send_email(subject,body,recipient):
+    name = "Balldraft Fantasy"
+    address = "Balldraft Fantasy Club"
+    phone_number = "support@balldraft.com"
+    context ={
+        "subject": subject,
+        "body":body,
+        "name": name,
+        "address": address,
+        "phone_number":phone_number
+        }
+    html_content = render_to_string("emails.html", context)
+    text_content = strip_tags(html_content)
+    email = EmailMultiAlternatives(
+        subject,
+        text_content,
+        settings.EMAIL_HOST_USER ,
+        [recipient]
+    )
+    email.attach_alternative(html_content, 'text/html')
+    email.send()
+
+
+
 
 @deconstructible
 class GenerateProfileImagePath(object):
@@ -61,7 +93,7 @@ class Bonus(models.Model):
             {self.reason}
             Note: You can deposit, withdraw, enter contest, and transfer funds in and out of your balldraft account without any transaction fees.
             For any issues with our services, please contact balldraft@balldraft.com"""
-            send_email(f"${self.ngn_amount} Free Bonus  | balldraft LTD", body,  self.profile.user.email)
+            send_email(f"${self.ngn_amount} Free Bonus  | balldraft Fantasy", body,  self.profile.user.email)
             
             ## credit to their account 
             self.profile.account_balance += self.ngn_amount
@@ -90,7 +122,7 @@ class Penalty(models.Model):
             {self.reason}
             
             . For further complains or enquiry, kindly contact balldraft@balldraft.com"""
-            send_email(f"${self.ngn_amount}  Penalty Withdrawn from your account  | balldraft LTD", body,  self.profile.user.email)
+            send_email(f"${self.ngn_amount}  Penalty Withdrawn from your account  | balldraft Fantasy", body,  self.profile.user.email)
             
             ## minus to their account
             self.profile.available_balance -= self.ngn_amount
