@@ -12,5 +12,7 @@ admin.site.register(Penalty)
 admin.site.register(Deposit)
 admin.site.register(Withdraw)
 admin.site.register(TransactionHistory)
+admin.site.register(Referral)
+
 # admin.site.register(ContestEnt
 # admin.site.register(Profile)ry)

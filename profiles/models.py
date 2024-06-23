@@ -61,6 +61,8 @@ class Profile(models.Model):
     bank = models.CharField(max_length=100, null=True, blank=True)
     account_number = models.CharField(max_length=100, null=True, blank=True)
     account_name = models.CharField(max_length=100, null=True, blank=True)
+    referral_people = models.IntegerField(default=0, null=True, blank=True)
+    referred_by = models.CharField(max_length=100, null=True, blank=True)
     account_balance = models.FloatField(default=0.00)
     pending_balance = models.FloatField(default=0.00)
     
@@ -80,6 +82,16 @@ class Profile(models.Model):
 
     def __str__(self):
         return self.username + "'s Profile"
+
+
+
+class Referral(models.Model):
+    profile = models.ForeignKey(Profile, related_name="referrals", on_delete=models.CASCADE)
+    username = models.CharField(max_length=50)
+    date_joined = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.profile.username} referred {self.username}'
 
 
 class Notification(models.Model):
