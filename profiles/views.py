@@ -64,6 +64,28 @@ class ProfileView(RetrieveUpdateAPIView):
     def patch(self, request, *args, **kwargs):
         return self.put(request, *args, **kwargs)
 
+from rest_framework import generics, status
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from .models import Notification
+from .serializers import NotificationSerializer
+
+class NotificationListView(generics.ListAPIView):
+    serializer_class = NotificationSerializer
+
+    def get_queryset(self):
+        return Notification.objects.filter(profile=self.request.user.profile).order_by('-time')
+
+@api_view(['POST'])
+def mark_as_read(request, pk):
+    try:
+        notification = Notification.objects.get(pk=pk, profile=request.user.profile)
+    except Notification.DoesNotExist:
+        return Response({'error': 'Notification not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    notification.read = True
+    notification.save()
+    return Response({'status': 'Notification marked as read'}, status=status.HTTP_200_OK)
 
 
 class EmailChangeView(UpdateAPIView):

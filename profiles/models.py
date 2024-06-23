@@ -36,15 +36,6 @@ def send_email(subject,body,recipient):
     email.send()
 
 
-class Notification(models.Model):
-    profile = models.ForeignKey(Profile,on_delete=models.CASCADE)
-    action = models.TextField(blank=True,null=True)
-    time = models.DateTimeField(auto_now_add=True)
-    action_title = models.CharField(max_length=100,blank=True,null=True)
-    read = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f'{self.profile.username} - {self.action}'
 
 @deconstructible
 class GenerateProfileImagePath(object):
@@ -77,6 +68,17 @@ class Profile(models.Model):
 
     def __str__(self):
         return self.username + "'s Profile"
+
+
+class Notification(models.Model):
+    profile = models.ForeignKey(Profile,on_delete=models.CASCADE)
+    action = models.TextField(blank=True,null=True)
+    time = models.DateTimeField(auto_now_add=True)
+    action_title = models.CharField(max_length=100,blank=True,null=True)
+    read = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f'{self.profile.username} - {self.action}'
 
 
 class Bonus(models.Model):
@@ -148,16 +150,6 @@ class Penalty(models.Model):
         
         super().save(*args, **kwargs)
         
-class Notification(models.Model):
-    profile = models.ForeignKey(Profile,on_delete=models.CASCADE)
-    action = models.TextField(blank=True,null=True)
-    time = models.DateTimeField(auto_now_add=True)
-    action_title = models.CharField(max_length=100,blank=True,null=True)
-    read = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f'{self.profile.username} - {self.action}'
-
 
 
 class Deposit(models.Model):
