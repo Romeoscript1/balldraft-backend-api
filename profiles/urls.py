@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import (ProfileView, EmailChangeView, NotificationListView, mark_as_read, delete_notification)
+from .views import *
 
 
 urlpatterns=[

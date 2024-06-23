@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from profiles.models import Profile, Notification
+from profiles.models import Profile, Notification, Referral
 
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -28,7 +28,7 @@ class ReferralSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Referral
-        fields = ['id', 'username', 'profile', 'date_joined', 'referred_by']
+        fields = ['id', 'profile', 'date_joined', 'referred_by']
         read_only_fields = ['id', 'profile', 'date_joined']
 
     def create(self, validated_data):
