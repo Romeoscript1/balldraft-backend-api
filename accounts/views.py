@@ -82,6 +82,7 @@ class VerifyUserEmail(GenericAPIView):
 class ResendCodeView(GenericAPIView):
     OTP_EXPIRATION_TIME_SECONDS = 90
 
+    @swagger_auto_schema(request_body=UserRegisterSerializer)
     def post(self, request):
         email = request.data.get('email')
 
@@ -124,12 +125,14 @@ login_view = CustomTokenObtainPairView.as_view()
 
 class PasswordResetRequestView(GenericAPIView):
     serializer_class=PasswordResetRequestSerializer
+    @swagger_auto_schema(request_body=PasswordResetRequestSerializer)
     def post(self, request):
         serializer=self.serializer_class(data=request.data, context={'request':request})
         serializer.is_valid(raise_exception=True)
         return Response({'message':"An email has been send to you to rest you password"}, status=status.HTTP_200_OK)
 
 class PasswordResetConfirm(GenericAPIView):
+    serializer_class=PasswordResetRequestSerializer
     def get(self, request, uidb64, token):
         try:
             user_id = smart_str(urlsafe_base64_decode(uidb64))

@@ -86,7 +86,7 @@ WSGI_APPLICATION = 'balldraft.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'temp3DB',
+        'NAME': BASE_DIR / 'temp4DB',
     }
 }
 
