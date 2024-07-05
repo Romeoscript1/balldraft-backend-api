@@ -359,3 +359,9 @@ class ReferralDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return Referral.objects.filter(profile=self.request.user.profile) 
+
+
+# {
+#   "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTcyMDI3NDY2MCwiaWF0IjoxNzIwMTg4MjYwLCJqdGkiOiI1NWZiZjc4ZGM3NjU0Mzc4OWY4N2U5NGRkOGJiYTVlNiIsInVzZXJfaWQiOjJ9.Vh2jvOuuuQxjAV57Yi9KwMWO8UOKPV7WnBmjb2Bqwo0",
+#   "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIwMjc0NjYwLCJpYXQiOjE3MjAxODgyNjAsImp0aSI6ImYwNGU5NzFlMjI5MTQ3YzJiMmZmZDVlOTY3YjEyN2QxIiwidXNlcl9pZCI6Mn0.1fn6xNQg3EC272olCxx4NHuRCo9epQIYrM69spWYC7A"
+# }
