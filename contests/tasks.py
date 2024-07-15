@@ -1,3 +1,4 @@
+import requests
 from celery import shared_task
 from django.utils import timezone
 from datetime import timedelta
@@ -7,43 +8,82 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from random import shuffle
+import logging
 
-##Sending Emails to Clients that their contest has completed
-def send_email(subject,body,recipient):
-    context ={
+logger = logging.getLogger(__name__)
+
+def send_email(subject, body, recipient):
+    context = {
         "subject": subject,
-        "body":body,
-        }
+        "body": body,
+    }
     html_content = render_to_string("emails.html", context)
     text_content = strip_tags(html_content)
     email = EmailMultiAlternatives(
         subject,
         text_content,
-        settings.EMAIL_HOST_USER ,
+        settings.EMAIL_HOST_USER,
         [recipient]
     )
     email.attach_alternative(html_content, 'text/html')
     email.send()
 
-
 @shared_task
 def update_contest_history():
-    for c in ContestHistory.objects.filter(pending=True):
-        plan_end_date = plan.date_created + timedelta(days=plan.number_of_days)
-        if timezone.now().date() >= plan_end_date:
-            profile = plan.profile
-            profile.available_balance += plan.amount + Decimal(plan.profit)
-            profile.book_balance += plan.amount + Decimal(plan.profit)
-            body = f"""
-            Hello there, your Investment is matured and due for withdrawal from blisschain LTD, 
-            kindly head over to your dashboard to request for a withdrawal.
-            
-            For any issues encountered with using our services, please don't hesitate to reach our to support through support@bliss-chain.com,
-            or directly on our website.
-            """
-            send_email(f"${plan.amount} Investment Completed!! | BlissChain LTD", body, plan.profile.user.email)
-            send_email(f"Alert!!, {plan.profile.user.username} Investment Completed today | BlissChain LTD", "the investment of the customer completed today, he invested ${plan.amount}, kindly checkup on them if they need any assistance", 'support@bliss-chain.com')
-            profile.save()
+    try:
+        for c in ContestHistory.objects.filter(pending=True):
+            id = c.id  # Assuming id is a field in ContestHistory
+            response = requests.get(f"http://127.0.0.1:8000/search-fixtures?keyword={id}&limit=1")
+            response.raise_for_status()
+            data = response.json()
 
-            plan.done = True
-            plan.save()
+            if data['total_fixtures'] != 1:
+                logger.warning(f"No unique fixture found for ID {id}")
+                continue
+
+            fixture = data['fixtures'][0]
+
+            if not fixture['completed']:
+                logger.info(f"Fixture {id} is not completed yet.")
+                continue
+
+            total_to_win = Decimal(fixture['total_to_win'])
+
+            related_contests = ContestHistory.objects.filter(id=id)
+            num_contests = related_contests.count()
+
+            if num_contests == 0:
+                logger.warning(f"No related contests found for fixture ID {id}")
+                continue
+
+            one_third = total_to_win / 3
+
+            # First third: distribute among all contests
+            shuffle(related_contests)
+            for i, contest in enumerate(related_contests):
+                if i == 0:
+                    contest.won_amount = one_third * Decimal('0.75')
+                elif i == 1:
+                    contest.won_amount = one_third * Decimal('0.30')
+                elif i == 2:
+                    contest.won_amount = one_third * Decimal('0.20')
+                else:
+                    contest.won_amount = one_third / Decimal(num_contests - 3)
+
+                contest.completed = True
+                contest.save()
+
+                send_email(
+                    subject=f"${contest.entry_amount} Fantasy Contest Completed!! | Balldraft LTD",
+                    body="Congratulations! Your contest has been completed.",
+                    recipient=contest.profile.user.email
+                )
+
+            c.completed = True
+            c.save()
+
+    except requests.RequestException as e:
+        logger.error(f"Request failed: {e}")
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")

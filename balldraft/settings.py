@@ -221,3 +221,9 @@ CELERY_BEAT_SCHEDULE = {
        'schedule': timedelta(seconds=15),  # Runs every 5 seconds
    },
 }
+
+
+
+
+CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True

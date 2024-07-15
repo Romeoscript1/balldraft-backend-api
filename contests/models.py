@@ -36,4 +36,4 @@ class ContestHistory(models.Model):
     pool_price = models.IntegerField(default=0)
 
     def __str__(self):
-        return f'{self.profile.username} - {self.action_title}'
+        return f'{self.profile.username} - {self.name}'
