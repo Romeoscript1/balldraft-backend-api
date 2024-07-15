@@ -1,44 +1,46 @@
-# from django.utils import timezone
-# from rest_framework.views import APIView
-# from rest_framework.response import Response
-# from rest_framework import status
-# from .models import Contest 
-# from profiles.models import ContestEntry
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from drf_yasg.utils import swagger_auto_schema
+from .models import ContestHistory
+from .serializers import ContestHistorySerializer
 
-# class EnterContest(APIView):
-#     def post(self, request, contest_id):
-#         try:
-#             profile = request.user.profile
-#             contest = Contest.objects.get(id=contest_id)
-            
-#             # Check if game is live or not
-#             if contest.is_upcoming is True and contest.is_live is False:
-#                 # Check if user balance is enough for contest
-#                 if contest.entry_fee < profile.account_balance:
-#                     # Check if the contest allows multiple entries
-#                     if contest.allow_multiple_entries:
-#                         # Check if the user has reached the maximum number of entries
-#                         user_entries_count = ContestEntry.objects.filter(profile=profile, contest=contest).count()
-#                         if user_entries_count < contest.max_multi_entries:
-#                             # User can enter the contest again
-#                             ContestEntry.objects.create(profile=profile, contest=contest, entry_time=timezone.now())
-#                             # Deduct entry fee from user's account balance
-#                             profile.account_balance -= contest.entry_fee
-#                             profile.save()
-#                             return Response(status=status.HTTP_201_CREATED)
-#                         else:
-#                             return Response({"error": "Maximum entries reached for this contest."}, status=status.HTTP_400_BAD_REQUEST)
-#                     else:
-#                         # Check if the user has already entered the contest
-#                         if ContestEntry.objects.filter(profile=profile, contest=contest).exists():
-#                             return Response({"error": "You have already entered this contest."}, status=status.HTTP_400_BAD_REQUEST)
-#                         else:
-#                             # User can enter the contest
-#                             ContestEntry.objects.create(profile=profile, contest=contest, entry_time=timezone.now())
-#                             return Response(status=status.HTTP_201_CREATED) 
-#                 else:
-#                     return Response({"error": "Account Balance not enough for contest. Deposit into your account."}, status=status.HTTP_400_BAD_REQUEST)
-#             else:
-#                     return Response({"error": "Game is ongoing already"}, status=status.HTTP_400_BAD_REQUEST)
-#         except Contest.DoesNotExist:
-#             return Response({"error": "Contest does not exist."}, status=status.HTTP_404_NOT_FOUND)
+class ContestHistoryCreateView(generics.CreateAPIView):
+    serializer_class = ContestHistorySerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(request_body=ContestHistorySerializer)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class ContestHistoryDetailView(generics.RetrieveAPIView):
+    serializer_class = ContestHistorySerializer
+    permission_classes = [IsAuthenticated]
+    queryset = ContestHistory.objects.all()
+    lookup_field = 'pk'
+
+class ContestHistoryListView(generics.ListAPIView):
+    serializer_class = ContestHistorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ContestHistory.objects.filter(profile=self.request.user.profile)
+
+class ContestHistoryUpdateView(generics.UpdateAPIView):
+    serializer_class = ContestHistorySerializer
+    permission_classes = [IsAuthenticated]
+    queryset = ContestHistory.objects.all()
+    lookup_field = 'pk'
+
+    @swagger_auto_schema(request_body=ContestHistorySerializer)
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data, status=status.HTTP_200_OK)

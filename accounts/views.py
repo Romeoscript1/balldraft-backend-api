@@ -74,7 +74,7 @@ class VerifyUserEmail(GenericAPIView):
         current_time = timezone.now()
         otp_timestamp = otp_obj.time
         time_difference_seconds = (current_time - otp_timestamp).total_seconds()
-        return time_difference_seconds > self.OTP_EXPIRATION_TIME_SECONDS
+        return time_difference_seconds >= self.OTP_EXPIRATION_TIME_SECONDS
 
     def otp_expired_response(self):
         return Response({"error": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
