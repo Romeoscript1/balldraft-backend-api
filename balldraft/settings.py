@@ -217,7 +217,7 @@ from datetime import timedelta
 
 CELERY_BEAT_SCHEDULE = {
    'update-contest-history-live-and-completed': {
-       'task': 'contest.tasks.update_contest_history',
+       'task': 'contests.tasks.update_contest_history',
        'schedule': timedelta(seconds=15),  # Runs every 5 seconds
    },
 }

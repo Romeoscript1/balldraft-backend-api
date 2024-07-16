@@ -29,12 +29,13 @@ def send_email(subject, body, recipient):
     email.attach_alternative(html_content, 'text/html')
     email.send()
 
+
 @shared_task
 def update_contest_history():
     try:
         for c in ContestHistory.objects.filter(pending=True):
             id = c.id  # Assuming id is a field in ContestHistory
-            response = requests.get(f"http://127.0.0.1:8000/search-fixtures?keyword={id}&limit=1")
+            response = requests.get(f"https://microservice.balldraft.com/search-fixtures?keyword={id}&limit=1")
             response.raise_for_status()
             data = response.json()
 
@@ -49,6 +50,7 @@ def update_contest_history():
                 continue
 
             total_to_win = Decimal(fixture['total_to_win'])
+            league_name = fixture['league_name']
 
             related_contests = ContestHistory.objects.filter(id=id)
             num_contests = related_contests.count()
@@ -72,6 +74,9 @@ def update_contest_history():
                     contest.won_amount = one_third / Decimal(num_contests - 3)
 
                 contest.completed = True
+                contest.pending = False
+                contest.pool_price = total_to_win
+                contest.league_name = league_name
                 contest.save()
 
                 send_email(
@@ -81,6 +86,9 @@ def update_contest_history():
                 )
 
             c.completed = True
+            c.pending = False
+            c.pool_price = total_to_win
+            c.league_name = league_name
             c.save()
 
     except requests.RequestException as e:
