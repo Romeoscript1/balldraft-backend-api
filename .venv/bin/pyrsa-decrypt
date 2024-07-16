@@ -1,4 +1,4 @@
-#!/root/user/.venv/bin/python3
+#!/Users/Apple/Desktop/BD/.venv/bin/python3.12
 # -*- coding: utf-8 -*-
 import re
 import sys

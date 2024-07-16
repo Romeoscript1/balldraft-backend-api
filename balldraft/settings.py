@@ -2,6 +2,7 @@ import environ
 from pathlib import Path
 from datetime import timedelta
 import os
+from celery.schedules import crontab
 
 env = environ.Env(
     DEBUG=(bool, False)
@@ -35,10 +36,10 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
-
+    'contests',
     'accounts',
     'profiles',
-    'contests',
+    
     'social_accounts',
 
     'corsheaders',
@@ -61,10 +62,12 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'balldraft.urls'
 
+TEMPLATE_DIR = os.path.join(BASE_DIR, "templates" )
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [TEMPLATE_DIR],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -173,7 +176,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 DEFAULT_FROM_EMAIL='benjaminparish6@gmail.com'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+# settings.py
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
@@ -191,3 +199,31 @@ SOCIAL_AUTH_PASSWORD=env("SOCIAL_AUTH_PASSWORD")
 # settings.py
 PAYSTACK_PUBLIC_KEY = 'pk_test_bdd214c5f09fb577dda652aac05d36d540de78d5'
 PAYSTACK_SECRET_KEY = 'sk_test_c7ca554be91c7e7093e780d169bb4e9cef611682'
+
+
+
+
+## Celery for investment checking
+# CELERY_BEAT_SCHEDULE = {
+#      'update-investment-plans-everyday': {
+#          'task': 'myaccount.tasks.update_investment_plans',
+#          'schedule': crontab(hour=0, minute=0),  # Runs daily at midnight
+#      },
+# }
+
+
+# ## Development purposes
+from datetime import timedelta
+
+CELERY_BEAT_SCHEDULE = {
+   'update-contest-history-live-and-completed': {
+       'task': 'contests.tasks.update_contest_history',
+       'schedule': timedelta(seconds=15),  # Runs every 5 seconds
+   },
+}
+
+
+
+
+CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True

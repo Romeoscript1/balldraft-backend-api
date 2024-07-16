@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
 
-# from contests import router as contests_api_router
+from contests import router as contests_api_router
 from profiles import router as profile_api_router
 
 from drf_yasg.views import get_schema_view
@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/v1/auth/', include('accounts.urls')),
     path('api/v1/auth/', include('social_accounts.urls')),
     path('api/v1/profile/', include('profiles.urls')),
+    path('api/v1/contest/', include('contests.urls')),
 
     #documentation url
     path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
