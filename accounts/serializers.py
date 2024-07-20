@@ -1,6 +1,6 @@
 from datetime import timedelta, datetime
 from rest_framework import serializers
-from .models import User, OneTimePassword
+from .models import User, EmailVerificationTOTP
 
 from rest_framework.exceptions import AuthenticationFailed
 
@@ -41,10 +41,11 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('confirm_password', None)
         return User.objects.create_user(**validated_data)
 
-class OTPSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OneTimePassword
-        fields = ['code']
+
+class TOTPVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(max_length=6, min_length=6)
+
         
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=255, min_length=6)
@@ -57,7 +58,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
             token = PasswordResetTokenGenerator().make_token(user)
             request = self.context.get('request')
             site_domain = get_current_site(request).domain
-            relative_link = f"/password-reset-confirm/{uidb64}/{token}/"
+            relative_link = f"/api/v1/auth/password-reset-confirm/{uidb64}/{token}/"
             abslink = f"http://{site_domain}{relative_link}"
             email_body = f"Hey, Reset your password using this link \n {abslink}"
             data = {
@@ -66,6 +67,8 @@ class PasswordResetRequestSerializer(serializers.Serializer):
                 'to_email': user.email
             }
             send_reset_password_email(data)
+        else:
+            raise serializers.ValidationError({"error": "user with this Email Address does not exist."})
         return super().validate(attrs)
 
 class SetNewPasswordSerializer(serializers.Serializer):

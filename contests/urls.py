@@ -5,5 +5,5 @@ urlpatterns = [
     path('contest-history/', ContestHistoryCreateView.as_view(), name='contest_history_create'),
     path('contest-history/<int:pk>/', ContestHistoryDetailView.as_view(), name='contest_history_detail'),
     path('contest-history/list/', ContestHistoryListView.as_view(), name='contest_history_list'),
-    path('contest-history/<int:pk>/update/', ContestHistoryUpdateView.as_view(), name='contest_history_update'),
+    # path('contest-history/<int:pk>/update/', ContestHistoryUpdateView.as_view(), name='contest_history_update'),
 ]

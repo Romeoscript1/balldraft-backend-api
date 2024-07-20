@@ -6,6 +6,7 @@ from .managers import UserManager
 from rest_framework_simplejwt.tokens import RefreshToken
 
 # from contests.models import Contest
+import pyotp
 
 
 AUTH_PROVIDERS={
@@ -45,13 +46,18 @@ class User(AbstractBaseUser, PermissionsMixin):
             'access':str(refresh.access_token)
         }
 
-class OneTimePassword(models.Model):
-    user= models.OneToOneField(User, on_delete=models.CASCADE)
-    code=models.CharField(max_length=6, unique=True)
-    time = models.DateTimeField(auto_now_add=True)
+class EmailVerificationTOTP(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    secret = models.CharField(max_length=16, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self) -> str:
-        return f"{self.user.first_name}-password"
+    def __str__(self):
+        return f"{self.user.email} - {self.secret}"
+    
+    def generate_otp(self):
+        # Create a TOTP instance with a 90-second interval
+        totp = pyotp.TOTP(self.secret, interval=90)
+        return totp.now()
     
 class ReasonToLeave(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
