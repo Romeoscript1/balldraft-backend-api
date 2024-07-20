@@ -10,7 +10,11 @@ from .views import (RegisterUserView,
                     
                     ActivateAccountView,
                     DeactivateAccountView,
-                    DeleteAccountView)
+                    DeleteAccountView,
+                    
+                    Enable2FAView,
+                    Verify2FATokenView,
+                    Disable2FAView)
 
 
 
@@ -27,6 +31,10 @@ urlpatterns=[
     path('account/deactivate/', DeactivateAccountView.as_view(), name='deactivate-account'),
     path('account/activate/', ActivateAccountView.as_view(), name='activate-account'),
     path('account/delete/', DeleteAccountView.as_view(), name='delete-account'),
+
+    path('2fa/enable/', Enable2FAView.as_view(), name='enable_2fa'),
+    path('2fa/verify/', Verify2FATokenView.as_view(), name='verify_2fa'),
+    path('2fa/disable/', Disable2FAView.as_view(), name='disable_2fa'),
 
 ]
 
