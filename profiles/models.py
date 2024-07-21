@@ -65,6 +65,10 @@ class Profile(models.Model):
     referred_by = models.CharField(max_length=100, null=True, blank=True)
     account_balance = models.FloatField(default=0.00)
     pending_balance = models.FloatField(default=0.00)
+    country = models.TextField(max_length=335, blank=True, null=True)
+    state = models.TextField(max_length=335, blank=True, null=True)
+    city = models.TextField(max_length=335, blank=True, null=True)
+    zip_code = models.CharField(max_length=15, blank=True, null=True)
     
     image = models.FileField(upload_to=user_profile_image_path, blank=True, null=True)
 

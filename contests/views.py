@@ -23,6 +23,9 @@ class ContestHistoryDetailView(generics.RetrieveAPIView):
     queryset = ContestHistory.objects.all()
     lookup_field = 'pk'
 
+    def get_queryset(self):
+        return ContestHistory.objects.filter(profile=self.request.user.profile)
+
 class ContestHistoryListView(generics.ListAPIView):
     serializer_class = ContestHistorySerializer
     permission_classes = [IsAuthenticated]
