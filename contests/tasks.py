@@ -34,8 +34,8 @@ def send_email(subject, body, recipient):
 def update_contest_history():
     try:
         for c in ContestHistory.objects.filter(pending=True):
-            id = c.id  # Assuming id is a field in ContestHistory
-            response = requests.get(f"https://microservice.balldraft.com/search-fixtures?keyword={id}&limit=1")
+            id = c.id 
+            response = requests.get(f"https://api.balldraft.com/search-fixtures?keyword={id}&limit=1")
             response.raise_for_status()
             data = response.json()
 
