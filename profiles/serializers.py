@@ -5,7 +5,10 @@ from profiles.models import Profile, Notification, Referral,Payment, Withdraw
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['username', 'full_name', 'dob', 'email', 'address', 'mobile_number', 'bank', 'account_number', 'account_name', 'account_balance', 'pending_balance']
+        fields = ['username', 'full_name', 'dob', 'email', 'address',
+                  'city', 'state', 'country', 'zip_code',
+                    'mobile_number', 'bank', 'account_number', 'account_name', 
+                    'account_balance', 'pending_balance']
 
 class EmailChangeSerializer(serializers.Serializer):
     new_email = serializers.EmailField(max_length=255)

@@ -36,6 +36,7 @@ def update_contest_history():
         for c in ContestHistory.objects.filter(pending=True):
             id = c.id 
             response = requests.get(f"http://127.0.0.1:8000/search-fixtures?keyword={id}&limit=1")
+
             response.raise_for_status()
             data = response.json()
 

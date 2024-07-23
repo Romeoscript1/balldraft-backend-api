@@ -4,7 +4,7 @@ from .serializers import (
     PasswordResetRequestSerializer, 
     SetNewPasswordSerializer,
     LogoutUserSerializer,
-    DDConfirmActionAccountSerializer, OTPSerializer)
+    DDConfirmActionAccountSerializer, TOTPVerificationSerializer)
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import AllowAny
@@ -14,8 +14,8 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 
-from .utils import send_code_to_user
-from .models import OneTimePassword, User, ReasonToLeave
+from .utils import send_verification_email
+from .models import EmailVerificationTOTP, User, ReasonToLeave
 
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
@@ -25,11 +25,17 @@ from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
 from drf_yasg.utils import swagger_auto_schema
 
+from django.contrib.sites.shortcuts import get_current_site
+
+from django_otp.plugins.otp_totp.models import TOTPDevice
+from django_otp.util import random_hex
+import pyotp
+
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 User = get_user_model()
 
-class RegisterUserView(GenericAPIView):
+class RegisterUserView(APIView):
     serializer_class = UserRegisterSerializer
 
     @swagger_auto_schema(request_body=UserRegisterSerializer)
@@ -38,51 +44,51 @@ class RegisterUserView(GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            send_code_to_user(user.email)
+            # Generate and send OTP after user is saved
+            self.create_and_send_otp(user)
             return Response({
                 'data': serializer.data,
                 'message': f'Welcome {user.first_name} to Balldraft. Thanks for signing up. Check your mail for your passcode.'
             }, status=status.HTTP_200_OK)
         print(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
 
-class VerifyUserEmail(GenericAPIView):
-    OTP_EXPIRATION_TIME_SECONDS = 90
-    
-    @swagger_auto_schema(request_body=OTPSerializer)
+    def create_and_send_otp(self, user):
+        otp_obj, created = EmailVerificationTOTP.objects.get_or_create(user=user)
+        if not created:
+            # If the OTP already exists, update the secret
+            otp_obj.secret = pyotp.random_base32()
+            otp_obj.save()
+        # Call the utility function to send the OTP email
+        send_verification_email(user, otp_obj.secret)
+
+class VerifyUserEmail(APIView):
+    @swagger_auto_schema(request_body=TOTPVerificationSerializer)
     def post(self, request):
-        otp_code = request.data.get('otp')
+        serializer = TOTPVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        email = serializer.validated_data.get('email')
+        otp = serializer.validated_data.get('otp')
+        
         try:
-            user_otp_obj = OneTimePassword.objects.get(code=otp_code)
-            user = user_otp_obj.user
-            if self.is_otp_expired(user_otp_obj):
-                user_otp_obj.delete()
-                return self.otp_expired_response()
-
-            if not user.is_verified:
-                user.is_verified = True
+            user = User.objects.get(email=email)
+            verification_record = EmailVerificationTOTP.objects.get(user=user)
+            
+            totp = pyotp.TOTP(verification_record.secret)
+            
+            # Verify OTP
+            if totp.verify(otp):
+                user.is_active = True
                 user.save()
-                return Response({"message": "Account email verified successfully"}, status=status.HTTP_200_OK)
+                verification_record.delete()
+                return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
             else:
-                return Response({"message": "User is already verified"}, status=status.HTTP_204_NO_CONTENT)
-
-        except OneTimePassword.DoesNotExist:
-            return self.otp_expired_response()
-
-    def is_otp_expired(self, otp_obj):
-        current_time = timezone.now()
-        otp_timestamp = otp_obj.time
-        time_difference_seconds = (current_time - otp_timestamp).total_seconds()
-        return time_difference_seconds >= self.OTP_EXPIRATION_TIME_SECONDS
-
-    def otp_expired_response(self):
-        return Response({"error": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+        except (User.DoesNotExist, EmailVerificationTOTP.DoesNotExist):
+            return Response({'error': 'Invalid email or OTP.'}, status=status.HTTP_400_BAD_REQUEST)
     
-class ResendCodeView(GenericAPIView):
-    OTP_EXPIRATION_TIME_SECONDS = 90
-
-    @swagger_auto_schema(request_body=UserRegisterSerializer)
+class ResendCodeView(APIView):
     def post(self, request):
         email = request.data.get('email')
 
@@ -90,35 +96,46 @@ class ResendCodeView(GenericAPIView):
             return Response({"message": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            otp_obj = OneTimePassword.objects.get(user__email=email)
-            if self.is_otp_expired(otp_obj):
-                otp_obj.delete()  
-                send_code_to_user(email)  
+            user = User.objects.get(email=email)
+            try:
+                otp_obj = EmailVerificationTOTP.objects.get(user=user)
+                # If OTP already exists, update the secret
+                otp_obj.secret = pyotp.random_base32()
+                otp_obj.save()
+                # Send new OTP code
+                send_verification_email(user, otp_obj.secret)
                 return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
-            else:
-                return Response({"error": "OTP is still valid"}, status=status.HTTP_400_BAD_REQUEST)
-        except OneTimePassword.DoesNotExist:
-            send_code_to_user(email) 
-            return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": "Failed to send new OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    def is_otp_expired(self, otp_obj):
-        current_time = timezone.now()
-        otp_timestamp = otp_obj.time
-        time_difference_seconds = (current_time - otp_timestamp).total_seconds()
-        return time_difference_seconds > self.OTP_EXPIRATION_TIME_SECONDS
+            except EmailVerificationTOTP.DoesNotExist:
+                # Create a new TOTP secret and send the code
+                secret = pyotp.random_base32()
+                EmailVerificationTOTP.objects.create(user=user, secret=secret)
+                send_verification_email(user, secret)
+                return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({"error": "User with this email does not exist"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
+        # Perform standard token generation
         response = super().post(request, *args, **kwargs)
+        
         if response.status_code == status.HTTP_200_OK:
             user = User.objects.filter(email=request.data.get('email')).first()
-            if user and not user.is_verified:
-                raise AuthenticationFailed({"error": 'Email is not verified'})
+            if user and TOTPDevice.objects.filter(user=user, name="default").exists():
+                # Check if the 2FA token is provided
+                if '2fa_token' not in request.data:
+                    return Response({
+                        'detail': '2FA token required',
+                        'access': response.data['access']
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+
+                device = TOTPDevice.objects.get(user=user, name="default")
+                if not device.verify_token(request.data['2fa_token']):
+                    return Response({'error': 'Invalid 2FA token'}, status=status.HTTP_400_BAD_REQUEST)
+
         return response
 
 login_view = CustomTokenObtainPairView.as_view()
@@ -129,7 +146,7 @@ class PasswordResetRequestView(GenericAPIView):
     def post(self, request):
         serializer=self.serializer_class(data=request.data, context={'request':request})
         serializer.is_valid(raise_exception=True)
-        return Response({'message':"An email has been send to you to rest you password"}, status=status.HTTP_200_OK)
+        return Response({'message':"An email has been send to you to reset you password"}, status=status.HTTP_200_OK)
 
 class PasswordResetConfirm(GenericAPIView):
     serializer_class=PasswordResetRequestSerializer
@@ -138,12 +155,15 @@ class PasswordResetConfirm(GenericAPIView):
             user_id = smart_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(id=user_id)
             if PasswordResetTokenGenerator().check_token(user, token):
-                return Response({'message': 'Credentials are valid', 'uidb64': uidb64, 'token': token})
+                # Generate URL for password reset form
+                site_domain = get_current_site(request).domain
+                reset_page_url = f"https://{site_domain}/api/v1/auth/set-new-password/{uidb64}/{token}/"
+                return Response({'message': 'Token is valid', 'reset_page_url': reset_page_url})
             else:
                 return Response({'error': 'Token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
         except (TypeError, ValueError, DjangoUnicodeDecodeError, User.DoesNotExist):
             return Response({'error': 'Token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
-
+            
 class SetNewPassword(GenericAPIView):
     serializer_class = SetNewPasswordSerializer
 
@@ -224,4 +244,36 @@ class DeleteAccountView(APIView):
             user.delete()
             return Response({'message': 'Account deleted successfully'}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class Enable2FAView(APIView):
+    def post(self, request):
+        user = request.user
+        device, created = TOTPDevice.objects.get_or_create(user=user, name="default")
+        if not created:
+            return Response({'error': '2FA is already enabled'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        otp_secret = device.key
+        qr_code_url = device.config_url
+        return Response({'otp_secret': otp_secret, 'qr_code_url': qr_code_url}, status=status.HTTP_200_OK)
     
+class Verify2FATokenView(APIView):
+    def post(self, request):
+        user = request.user
+        token = request.data.get('token')
+        try:
+            device = TOTPDevice.objects.get(user=user, name="default")
+            if device.verify_token(token):
+                return Response({'message': '2FA token is valid'}, status=status.HTTP_200_OK)
+            return Response({'error': 'Invalid 2FA token'}, status=status.HTTP_400_BAD_REQUEST)
+        except TOTPDevice.DoesNotExist:
+            return Response({'error': '2FA not set up'}, status=status.HTTP_400_BAD_REQUEST)
+        
+class Disable2FAView(APIView):
+    def post(self, request):
+        user = request.user
+        try:
+            device = TOTPDevice.objects.get(user=user, name="default")
+            device.delete()
+            return Response({'message': '2FA has been disabled'}, status=status.HTTP_200_OK)
+        except TOTPDevice.DoesNotExist:
+            return Response({'error': '2FA not set up'}, status=status.HTTP_400_BAD_REQUEST)
