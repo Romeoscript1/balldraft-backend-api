@@ -48,3 +48,15 @@ curl -X PUT "http://127.0.0.1:8001/api/v1/contest/contest-history/121/update/" \
         {"id": 2, "name": "Player 2", "image_url": "url2", "team_id": 2, "fixture_id": 2, "points": 25, "position": "Midfielder"}
     ]
 }'
+
+
+
+curl -X 'POST' \
+  'https://api.convertng.com/api/register' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "email": "ben1@gmail.com",
+  "phone": "081115333313",
+  "password": "peterben"
+}'
