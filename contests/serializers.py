@@ -18,7 +18,7 @@ class ContestHistorySerializer(serializers.ModelSerializer):
         players_data = validated_data.pop('players')
         contest_history = ContestHistory.objects.create(**validated_data)
         for player_data in players_data:
-            player, created = Player.objects.get_or_create(id=player_data['id'], defaults=player_data)
+            player, created = Player.objects.get_or_create(id=player_data['player_id'], defaults=player_data)
             contest_history.players.add(player)
         return contest_history
 

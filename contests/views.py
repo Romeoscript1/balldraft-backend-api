@@ -6,6 +6,18 @@ from drf_yasg.utils import swagger_auto_schema
 from .models import ContestHistory
 from .serializers import ContestHistorySerializer
 
+# class ContestHistoryCreateView(generics.CreateAPIView):
+#     serializer_class = ContestHistorySerializer
+#     permission_classes = [IsAuthenticated]
+
+#     @swagger_auto_schema(request_body=ContestHistorySerializer)
+#     def create(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         self.perform_create(serializer)
+#         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
 class ContestHistoryCreateView(generics.CreateAPIView):
     serializer_class = ContestHistorySerializer
     permission_classes = [IsAuthenticated]
@@ -15,7 +27,13 @@ class ContestHistoryCreateView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response("Contest Created Successfully", status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer):
+        profile = self.request.user.profile  # Get the profile from the authenticated user
+        serializer.save(profile=profile)
+
+
 
 class ContestHistoryDetailView(generics.RetrieveAPIView):
     serializer_class = ContestHistorySerializer
