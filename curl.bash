@@ -86,3 +86,16 @@ curl -X POST "http://127.0.0.1:9000/api/v1/contest/contest-history/" \
         {"player_id": 125678, "name": "J. Díaz", "image_url": "https://media.api-sports.io/football/players/125678.png", "team_player_id": 1140, "fixture_player_id": 1234160, "points": 0, "position": "Midfielder"}
     ]
 }'
+
+
+
+
+curl -X 'POST' \
+  'https://api.convertng.com/api/register' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "email": "ben1@gmail.com",
+  "phone": "081115333313",
+  "password": "peterben"
+}'
