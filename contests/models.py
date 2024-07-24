@@ -8,7 +8,8 @@ from django import forms
 
 
 class Player(models.Model):
-    id = models.IntegerField(primary_key=True)
+    id = models.AutoField(primary_key=True)
+    player_id = models.IntegerField(null=True)
     name = models.CharField(max_length=250)
     image_url = models.CharField(max_length=250)
     team_id = models.IntegerField(default=0)
@@ -23,14 +24,17 @@ class Player(models.Model):
 class ContestHistory(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
     name = models.CharField(max_length=100, blank=True, null=True)
-    id = models.IntegerField(primary_key=True)
+    id = models.AutoField(primary_key=True)
+    game_id = models.IntegerField()
+    fixture_id = models.IntegerField(null=True)
     entry_amount = models.IntegerField(default=0)
     entered_by = models.DateTimeField(auto_now_add=True)
     league_name = models.CharField(max_length=150, blank=True, null=True)
     pending = models.BooleanField(default=True)
     completed = models.BooleanField(default=False)
+    profit = models.BooleanField(default=False)
     players = models.ManyToManyField(Player, blank=True)
-    total_points = models.IntegerField(default=0)
+    total_points = models.FloatField(default=0.00)
     position = models.IntegerField(default=0)
     won_amount = models.DecimalField(decimal_places=2, max_digits=12, default=0.0)
     pool_price = models.IntegerField(default=0)

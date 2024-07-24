@@ -1,7 +1,7 @@
+# tasks.py
 import requests
 from celery import shared_task
 from django.utils import timezone
-from datetime import timedelta
 from .models import ContestHistory
 from decimal import Decimal
 from django.conf import settings
@@ -29,70 +29,97 @@ def send_email(subject, body, recipient):
     email.attach_alternative(html_content, 'text/html')
     email.send()
 
-
 @shared_task
 def update_contest_history():
     try:
         for c in ContestHistory.objects.filter(pending=True):
-            id = c.id 
+            id = c.game_id 
+            fixture_id = c.fixture_id
             response = requests.get(f"http://127.0.0.1:8000/search-fixtures?keyword={id}&limit=1")
-
             response.raise_for_status()
             data = response.json()
 
-            if data['total_fixtures'] != 1:
+            if not data['total_fixtures']:
+                print("Currently in this section!!!")
                 logger.warning(f"No unique fixture found for ID {id}")
                 continue
 
             fixture = data['fixtures'][0]
 
             if not fixture['completed']:
-                logger.info(f"Fixture {id} is not completed yet.")
+                logger.info(f"Fixture {fixture_id} is not completed yet.")
                 continue
 
-            total_to_win = Decimal(fixture['total_to_win'])
-            league_name = fixture['league_name']
+            related_contests = ContestHistory.objects.filter(fixture_id=fixture_id)
 
-            related_contests = ContestHistory.objects.filter(id=id)
-            num_contests = related_contests.count()
+            # Prepare data for points calculation
+            players_data = {
+                f"user{contest.profile.user.id}": {
+                    "players": [player.player_id for player in contest.players.all()],
+                    "entry_time": contest.entered_by.isoformat()
+                }
+                
+                for contest in related_contests
+            }
 
-            if num_contests == 0:
-                logger.warning(f"No related contests found for fixture ID {id}")
-                continue
+            logger.info(f"Player Details: {players_data}")
+            request_body = {
+                "contest_title": fixture['title'],
+                "fixture_id": fixture_id,
+                "selected_players": players_data
+            }
 
-            one_third = total_to_win / 3
 
-            # First third: distribute among all contests
-            shuffle(related_contests)
-            for i, contest in enumerate(related_contests):
-                if i == 0:
-                    contest.won_amount = one_third * Decimal('0.75')
-                elif i == 1:
-                    contest.won_amount = one_third * Decimal('0.30')
-                elif i == 2:
-                    contest.won_amount = one_third * Decimal('0.20')
-                else:
-                    contest.won_amount = one_third / Decimal(num_contests - 3)
+            logger.info(f"Request Body: {request_body}")
 
+            points_response = requests.post(
+                "http://127.0.0.1:8000/calculate-points/",
+                json=request_body
+            )
+
+            points_response.raise_for_status()
+            points_data = points_response.json()
+            logger.info(f"Points Data: {points_data}")
+
+            for contest in related_contests:
+                user_key = f"user{contest.profile.user.id}"
+                contest.total_points = points_data['scores'].get(user_key, 0)
                 contest.completed = True
                 contest.pending = False
-                contest.pool_price = total_to_win
-                contest.league_name = league_name
+                contest.pool_price = Decimal(fixture['total_to_win'])
+                contest.league_name = fixture['league_name']
                 contest.save()
 
-                send_email(
-                    subject=f"${contest.entry_amount} Fantasy Contest Completed!! | Balldraft LTD",
-                    body="Congratulations! Your contest has been completed.",
-                    recipient=contest.profile.user.email
-                )
-
-            c.completed = True
-            c.pending = False
-            c.pool_price = total_to_win
-            c.league_name = league_name
-            c.save()
+                # send_email(
+                #     subject=f"${contest.entry_amount} Fantasy Contest Completed!! | Balldraft LTD",
+                #     body="Congratulations! Your contest has been completed.",
+                #     recipient=contest.profile.user.email
+                # )
 
     except requests.RequestException as e:
         logger.error(f"Request failed: {e}")
     except Exception as e:
         logger.error(f"An error occurred: {e}")
+
+
+
+@shared_task
+def algorithms_for_distribution():
+    """
+    - create a field [profit - True or False "False" ]
+    - get all ContestHistory.objects.filter(profit=False && completed=True)
+    - get an id of a fixture, fixture_id and not id, then check if there're other types of
+    such fixtures in the db, then gather then all
+    - look through and note, the 1. entry_amount, current_entry total_win_amount, max_entry
+    - check if current_entry == max_entry
+        if false:
+            end
+        else:
+            run the algorithm func that performs the calculate of total_win_amount,
+            looking at the points, and watching out for similar traits,and others
+            sends an email 
+            waits for another 30mins to execute it
+    
+    """
+    pass
+
