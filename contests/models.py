@@ -35,9 +35,12 @@ class ContestHistory(models.Model):
     profit = models.BooleanField(default=False)
     players = models.ManyToManyField(Player, blank=True)
     total_points = models.FloatField(default=0.00)
+    positions = models.BooleanField(default=False)
     position = models.IntegerField(default=0)
+    max_entry = models.IntegerField(default=0)
     won_amount = models.DecimalField(decimal_places=2, max_digits=12, default=0.0)
     pool_price = models.IntegerField(default=0)
+
 
     def __str__(self):
         return f'{self.profile.username} - {self.name}'
