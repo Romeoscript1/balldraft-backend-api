@@ -24,7 +24,7 @@ urlpatterns=[
     path('resend-code/', ResendCodeView.as_view(), name='resend_code'),
     path('login/', login_view, name='login'),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset'),
-    path('password-reset-confirm/<uidb64>/<token>/', PasswordResetConfirm.as_view(), name='password_reset_confirm'),
+    path('password-reset-confirm/<uidb64>/<token>', PasswordResetConfirm.as_view(), name='password_reset_confirm'),
     path('set-new-password/', SetNewPassword.as_view(), name='set_new_password'),
     path('logout/', LogoutUserView.as_view(), name='logout'),
 

@@ -21,6 +21,11 @@ from django.utils.html import strip_tags
 from paystackapi.transaction import Transaction
 import uuid
 
+from django.conf import settings
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 def send_email(subject,body,recipient):
     name = "Balldraft Fantasy"
@@ -201,7 +206,7 @@ class PaymentCreateView(generics.CreateAPIView):
         payment = Payment.objects.create(profile=profile, ngn_amount=ngn_amount, reference=reference)
 
         # Initialize Paystack transaction
-        transaction = Transaction.initialize(reference=reference, amount=int(ngn_amount) * 100, email=request.user.email, callback_url='http://127.0.0.1/docs/')
+        transaction = Transaction.initialize(reference=reference, amount=int(ngn_amount) * 100, email=request.user.email, callback_url=settings.PAYMENT_TRANSACTION_CALLBACK_URL)
         logger.debug(transaction)  # Log the Paystack response
 
         if not transaction['status']:
@@ -224,6 +229,7 @@ class PaymentVerifyView(generics.GenericAPIView):
 
         # Verify Paystack transaction
         response = Transaction.verify(reference)
+        logger.debug(response)
         if not response['status']:
             return Response({'error': 'Unable to verify Paystack transaction'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -308,13 +314,9 @@ class EmailChangeView(UpdateAPIView):
         serializer.is_valid(raise_exception=True)
         new_email = serializer.validated_data['new_email']
 
+        # Update the email directly in the User model
         user.email = new_email
         user.save()
-        
-        # Update the email in the Profile model
-        profile = Profile.objects.get(user=user)
-        profile.email = new_email
-        profile.save()
 
         return Response({'detail': 'Email updated successfully'}, status=status.HTTP_200_OK)
 
@@ -359,9 +361,3 @@ class ReferralDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         return Referral.objects.filter(profile=self.request.user.profile) 
-
-
-# {
-#   "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTcyMDI3NDY2MCwiaWF0IjoxNzIwMTg4MjYwLCJqdGkiOiI1NWZiZjc4ZGM3NjU0Mzc4OWY4N2U5NGRkOGJiYTVlNiIsInVzZXJfaWQiOjJ9.Vh2jvOuuuQxjAV57Yi9KwMWO8UOKPV7WnBmjb2Bqwo0",
-#   "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIwMjc0NjYwLCJpYXQiOjE3MjAxODgyNjAsImp0aSI6ImYwNGU5NzFlMjI5MTQ3YzJiMmZmZDVlOTY3YjEyN2QxIiwidXNlcl9pZCI6Mn0.1fn6xNQg3EC272olCxx4NHuRCo9epQIYrM69spWYC7A"
-# }

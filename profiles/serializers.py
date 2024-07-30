@@ -31,23 +31,28 @@ class ReferralSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Referral
-        fields = ['id', 'profile', 'date_joined', 'referred_by']
+        fields = ['id', 'profile','date_joined', 'referred_by']
         read_only_fields = ['id', 'profile', 'date_joined']
 
     def create(self, validated_data):
         referred_by_username = validated_data.pop('referred_by')
+        request = self.context.get('request')
         try:
             referrer_profile = Profile.objects.get(username=referred_by_username)
         except Profile.DoesNotExist:
             raise serializers.ValidationError({'referred_by': 'Profile with this username does not exist.'})
-
-        referral = Referral.objects.create(profile=referrer_profile, **validated_data)
+        
+        # Create the referral instance
+        referred_profile = Profile.objects.get(user=request.user)
+        referral = Referral.objects.create(profile=referrer_profile, username=referred_profile, 
+                                           date_joined=validated_data.get('date_joined'))
 
         # Update referrer profile's referral_people count
         referrer_profile.referral_people += 1
         referrer_profile.save()
         
         return referral
+
     
     
 class PaymentSerializer(serializers.ModelSerializer):

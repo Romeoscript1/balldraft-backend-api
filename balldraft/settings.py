@@ -92,7 +92,7 @@ WSGI_APPLICATION = 'balldraft.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'temp4DB',
+        'NAME': BASE_DIR / 'temp5DB',
     }
 }
 
@@ -190,8 +190,8 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 #EMAIL_USE_SSL = True
 #EMAIL_PORT = 465
-EMAIL_HOST_USER = 'benjaminparish6@gmail.com'  
-EMAIL_HOST_PASSWORD = 'oqsehledopvxwakx'  
+EMAIL_HOST_USER = env("EMAIL_HOST_USER") 
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")  
 
 
 GOOGLE_CLIENT_ID=env("GOOGLE_CLIENT_ID")
@@ -200,23 +200,12 @@ SOCIAL_AUTH_PASSWORD=env("SOCIAL_AUTH_PASSWORD")
 
 
 # settings.py
-PAYSTACK_PUBLIC_KEY = 'pk_test_bdd214c5f09fb577dda652aac05d36d540de78d5'
-PAYSTACK_SECRET_KEY = 'sk_test_c7ca554be91c7e7093e780d169bb4e9cef611682'
+PAYSTACK_PUBLIC_KEY = env("PAYSTACK_PUBLIC_KEY")
+PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY")
 
-
-
-
-## Celery for investment checking
-# CELERY_BEAT_SCHEDULE = {
-#      'update-investment-plans-everyday': {
-#          'task': 'myaccount.tasks.update_investment_plans',
-#          'schedule': crontab(hour=0, minute=0),  # Runs daily at midnight
-#      },
-# }
-
+PAYMENT_TRANSACTION_CALLBACK_URL = env("PAYMENT_TRANSACTION_CALLBACK_URL")
 
 # ## Development purposes
-from datetime import timedelta
 
 CELERY_BEAT_SCHEDULE = {
    'update-contest-history-live-and-completed': {
@@ -237,5 +226,5 @@ CELERY_BEAT_SCHEDULE = {
 
 
 
-CELERY_BROKER_URL = 'amqp://guest:guest@localhost:5672//'
+CELERY_BROKER_URL = env("CELERY_BROKER_URL")
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True

@@ -54,8 +54,6 @@ user_profile_image_path = GenerateProfileImagePath()
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     username = models.CharField(max_length=101, unique=True, blank=True, null=True, verbose_name=_("User Name"))
-    # email = models.CharField(max_length=101, unique=True, blank=True, null=True, verbose_name=_("User Name"))
-    # dob = models.DateField(null=True, blank=True)
     address = models.TextField(blank=True, null=True)
     mobile_number = models.CharField(max_length=15, blank=True, null=True)
     bank = models.CharField(max_length=100, null=True, blank=True)
@@ -197,11 +195,11 @@ class Deposit(models.Model):
 
     @classmethod
     def total_verified_amount(cls):
-        return cls.objects.filter(verified=True).aggregate(Sum('ngn_amount'))['ngn_amount__sum'] or 0
+        return cls.objects.filter(verified=True).aggregate(models.Sum('ngn_amount'))['ngn_amount__sum'] or 0
 
     @classmethod
     def total_unverified_amount(cls):
-        return cls.objects.filter(verified=False).aggregate(Sum('ngn_amount'))['ngn_amount__sum'] or 0
+        return cls.objects.filter(verified=False).aggregate(models.Sum('ngn_amount'))['ngn_amount__sum'] or 0
 
     def save(self, *args, **kwargs):
         Notification.objects.create(
@@ -224,11 +222,12 @@ class Payment(models.Model):
         return f'Payment {self.reference} - {self.status}'
     
     def save(self, *args, **kwargs):
-        Deposit.objects.create(
-                profile=self.profile,
-                 ngn_amount = self.ngn_amount,
-                verified = False
-            )
+        if self.status == "success":
+            Deposit.objects.create(
+                    profile=self.profile,
+                    ngn_amount = self.ngn_amount,
+                    verified = False
+                )
         return super().save(*args, **kwargs)
     
 

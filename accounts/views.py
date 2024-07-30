@@ -35,6 +35,10 @@ from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 User = get_user_model()
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class RegisterUserView(APIView):
     serializer_class = UserRegisterSerializer
 
@@ -49,8 +53,8 @@ class RegisterUserView(APIView):
             return Response({
                 'data': serializer.data,
                 'message': f'Welcome {user.first_name} to Balldraft. Thanks for signing up. Check your mail for your passcode.'
-            }, status=status.HTTP_200_OK)
-        print(serializer.errors)
+            }, status=status.HTTP_201_CREATED)
+        logger.error(f"Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def create_and_send_otp(self, user):
@@ -58,7 +62,11 @@ class RegisterUserView(APIView):
         if not created:
             # If the OTP already exists, update the secret
             otp_obj.secret = pyotp.random_base32()
-            otp_obj.save()
+            logger.info(f"Updated OTP secret for user {user.email}: {otp_obj.secret}")
+        else:
+            otp_obj.secret = pyotp.random_base32()
+            logger.info(f"Created OTP secret for user {user.email}: {otp_obj.secret}")
+        otp_obj.save()
         # Call the utility function to send the OTP email
         send_verification_email(user, otp_obj.secret)
 
@@ -79,38 +87,35 @@ class VerifyUserEmail(APIView):
             
             # Verify OTP
             if totp.verify(otp):
-                user.is_active = True
-                user.save()
-                verification_record.delete()
+                with transaction.atomic():
+                    user.is_active = True
+                    user.save()
+                    verification_record.delete()
                 return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
         except (User.DoesNotExist, EmailVerificationTOTP.DoesNotExist):
             return Response({'error': 'Invalid email or OTP.'}, status=status.HTTP_400_BAD_REQUEST)
-    
+        
 class ResendCodeView(APIView):
     def post(self, request):
         email = request.data.get('email')
 
         if not email:
-            return Response({"message": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             user = User.objects.get(email=email)
-            try:
-                otp_obj = EmailVerificationTOTP.objects.get(user=user)
-                # If OTP already exists, update the secret
+            otp_obj, created = EmailVerificationTOTP.objects.get_or_create(user=user)
+            
+            # Update secret if OTP already exists
+            if not created:
                 otp_obj.secret = pyotp.random_base32()
                 otp_obj.save()
-                # Send new OTP code
-                send_verification_email(user, otp_obj.secret)
-                return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
-            except EmailVerificationTOTP.DoesNotExist:
-                # Create a new TOTP secret and send the code
-                secret = pyotp.random_base32()
-                EmailVerificationTOTP.objects.create(user=user, secret=secret)
-                send_verification_email(user, secret)
-                return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
+            
+            # Send new OTP code
+            send_verification_email(user, otp_obj.secret)
+            return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({"error": "User with this email does not exist"}, status=status.HTTP_400_BAD_REQUEST)
 
