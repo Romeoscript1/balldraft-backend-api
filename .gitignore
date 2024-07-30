@@ -1,3 +1,4 @@
+.env
 .venv
 temp3DB
 temp3DB.sql
@@ -7,5 +8,6 @@ temp5DB
 .venv/
 venv/
 key.pem
+.env
 .env
 .gitignore
