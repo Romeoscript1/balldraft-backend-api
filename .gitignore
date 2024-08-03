@@ -5,9 +5,15 @@ temp3DB.sql
 temp4DB
 temp5DB
 
-.venv/
+.venv/*
 venv/
 key.pem
 .env
 .env
+celerybeat-schedule.db
 .gitignore
+cu.bash
+c1.bash
+curl.bash
+n.conf
+u.bash
