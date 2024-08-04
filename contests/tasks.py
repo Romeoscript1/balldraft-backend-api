@@ -37,7 +37,7 @@ def update_contest_history():
         for c in ContestHistory.objects.filter(pending=True):
             id = c.game_id 
             fixture_id = c.fixture_id
-            response = requests.get(f"http://127.0.0.1:8000/search-fixtures?keyword={id}&limit=1")
+            response = requests.get(f"https://api.balldraft.com/search-fixtures?keyword={id}&limit=1")
             response.raise_for_status()
             data = response.json()
 
@@ -75,7 +75,7 @@ def update_contest_history():
             logger.info(f"Request Body: {request_body}")
 
             points_response = requests.post(
-                "http://127.0.0.1:8000/calculate-points/",
+                "https://api.balldraft.com/calculate-points/",
                 json=request_body
             )
 
@@ -111,7 +111,7 @@ def update_contest_history():
 #     - get all ContestHistory.objects.filter(positions=False && completed=True)
 #     - get the game_id of  a contesthistory, then check if there're other types of
 #     such fixtures in the db, that the game_id are same, then gather then all
-#     - run a get request to this "http://127.0.0.1:8000/search-fixtures?keyword={game_id}&limit=1" 
+#     - run a get request to this "https://api.balldraft.com/search-fixtures?keyword={game_id}&limit=1" 
 #     - if there's a response, check if the current_entry value is == to the max_entry value, if false, then
 #             Return the entry_amount to the won_amount field in the contesthistory model
 #             and send an email that the contest was filled, so all contests are refunded
@@ -137,7 +137,7 @@ def algorithms_for_distribution_position():
             game_id = contest.game_id
             related_contests = ContestHistory.objects.filter(game_id=game_id)
             
-            response = requests.get(f"http://127.0.0.1:8000/search-fixtures?keyword={game_id}&limit=1")
+            response = requests.get(f"https://api.balldraft.com/search-fixtures?keyword={game_id}&limit=1")
             response.raise_for_status()
             data = response.json()
 
