@@ -212,7 +212,7 @@ def distribute_profits_to_contests():
                     winner.save()
                     send_email(
                         subject="H2H Contest Winner Notification",
-                        body="Congratulations! You have won the H2H contest.",
+                        body=f"Congratulations! You have won the H2H contest of ₦{winner.won_amount}.",
                         recipient=winner.profile.user.email
                     )
 
@@ -221,7 +221,7 @@ def distribute_profits_to_contests():
                     loser.save()
                     send_email(
                         subject="H2H Contest Loser Notification",
-                        body="Unfortunately, you did not win the H2H contest.",
+                        body="Unfortunately, you did not win the H2H contest on Balldraft, Try again to win more than ₦10,000,000 on balldraft.",
                         recipient=loser.profile.user.email
                     )
                 else:
@@ -232,7 +232,7 @@ def distribute_profits_to_contests():
                     winner.save()
                     send_email(
                         subject="H2H Contest Winner Notification",
-                        body="Congratulations! You have won the H2H contest.",
+                        body=f"Congratulations! You have won the H2H contest of ₦{winner.won_amount}.",
                         recipient=winner.profile.user.email
                     )
 
@@ -241,7 +241,7 @@ def distribute_profits_to_contests():
                     loser.save()
                     send_email(
                         subject="H2H Contest Loser Notification",
-                        body="Unfortunately, you did not win the H2H contest.",
+                        body="Unfortunately, you did not win the H2H contest on Balldraft, Try again to win more than ₦10,000,000 on balldraft.",
                         recipient=loser.profile.user.email
                     )
 
@@ -287,8 +287,15 @@ def distribute_profits_to_contests():
                     related_contest = ContestHistory.objects.get(id=contest_id)
                     related_contest.position = index
                     related_contest.won_amount += Decimal(prize)
+                    related_contest.profile.account_balance += float(prize)
                     related_contest.profit = True
                     related_contest.save()
+                    send_email(
+                        subject="Multiple Entry Contest Notification || BALLDRAFT",
+                        body=f"Your Contest Of ₦{related_contest.entry_amount} On BALLDRAFT Has Recently Completed, And You Got The [{related_contest.position}]TH Position, Kindly Log On To Your Account !!!",
+                        recipient=related_contest.profile.user.email
+                    )
+
 
             # Mark all related contests as having profit calculated
             for related_contest in related_contests:

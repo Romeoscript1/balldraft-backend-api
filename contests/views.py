@@ -5,6 +5,8 @@ from rest_framework import status
 from drf_yasg.utils import swagger_auto_schema
 from .models import ContestHistory
 from .serializers import ContestHistorySerializer
+from rest_framework.exceptions import ValidationError
+import requests
 
 # class ContestHistoryCreateView(generics.CreateAPIView):
 #     serializer_class = ContestHistorySerializer
@@ -18,6 +20,151 @@ from .serializers import ContestHistorySerializer
 #         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
+# class ContestHistoryCreateView(generics.CreateAPIView):
+#     serializer_class = ContestHistorySerializer
+#     permission_classes = [IsAuthenticated]
+
+#     @swagger_auto_schema(request_body=ContestHistorySerializer)
+#     def create(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+        
+#         profile = request.user.profile  
+#         entry_amount = serializer.validated_data.get('entry_amount')
+
+#         if profile.account_balance < entry_amount:
+#             extra_needed = entry_amount - profile.account_balance
+#             raise ValidationError(
+#                 {"detail": f"Insufficient balance. You need {extra_needed} more to enter the contest, please add funds."}
+#             )
+#         elif profile.account_balance >= entry_amount:
+#             profile.account_balance - entry_amount
+
+#         self.perform_create(serializer)
+#         return Response("Contest Created Successfully", status=status.HTTP_201_CREATED)
+
+#     def perform_create(self, serializer, ):
+#         profile = self.request.user.profile 
+#         serializer.save(profile=profile)
+
+
+# class ContestHistoryCreateView(generics.CreateAPIView):
+#     serializer_class = ContestHistorySerializer
+#     permission_classes = [IsAuthenticated]
+
+#     @swagger_auto_schema(request_body=ContestHistorySerializer)
+#     def create(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+
+#         profile = request.user.profile  # Get the profile from the authenticated user
+#         entry_amount = serializer.validated_data.get('entry_amount')
+#         game_id = serializer.validated_data.get('game_id')
+
+#         if profile.account_balance < entry_amount:
+#             extra_needed = entry_amount - profile.account_balance
+#             raise ValidationError(
+#                 {"detail": f"Insufficient balance. You need {extra_needed} more to enter the contest."}
+#             )
+
+#         # Deduct entry amount from account balance
+#         profile.account_balance -= entry_amount
+#         profile.save()
+
+#         # Send PUT request to update fixture
+#         response = requests.put(
+#             f'https://api.balldraft.com/update-fixture/{game_id}',
+#             headers={
+#                 'accept': 'application/json',
+#                 'Content-Type': 'application/json'
+#             },
+#             json={'current_entry': 1}
+#         )
+
+#         if response.status_code == 200:
+#             self.perform_create(serializer)
+#             return Response("Contest Created Successfully", status=status.HTTP_201_CREATED)
+#         elif response.status_code == 400 and response.json().get('detail') == 'Contest is full':
+#             # Return entry amount to account balance
+#             profile.account_balance += entry_amount
+#             profile.save()
+#             return Response(
+#                 {"detail": "The contest is already full"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+#         else:
+#             # Handle unexpected errors
+#             return Response(
+#                 {"detail": "An unexpected error occurred while entering the contest"},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+#     def perform_create(self, serializer):
+#         profile = self.request.user.profile  # Get the profile from the authenticated user
+#         serializer.save(profile=profile)
+
+
+# class ContestHistoryCreateView(generics.CreateAPIView):
+#     serializer_class = ContestHistorySerializer
+#     permission_classes = [IsAuthenticated]
+
+#     @swagger_auto_schema(request_body=ContestHistorySerializer)
+#     def create(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+
+#         profile = request.user.profile  # Get the profile from the authenticated user
+#         entry_amount = serializer.validated_data.get('entry_amount')
+#         game_id = serializer.validated_data.get('game_id')
+
+#         if profile.account_balance < entry_amount:
+#             extra_needed = entry_amount - profile.account_balance
+#             raise ValidationError(
+#                 {"detail": f"Insufficient balance. You need {extra_needed} more to enter the contest."}
+#             )
+
+#         # Deduct entry amount from account balance
+#         profile.account_balance -= entry_amount
+#         profile.save()
+
+#         # Send PUT request to update fixture
+#         response = requests.put(
+#             f'https://api.balldraft.com/update-fixture/{game_id}',
+#             headers={
+#                 'accept': 'application/json',
+#                 'Content-Type': 'application/json'
+#             },
+#             json={'current_entry': 1}
+#         )
+
+#         if response.status_code == 200:
+#             response_data = response.json()
+#             if response_data.get('message') == "The contest is full":
+#                 # Return entry amount to account balance
+#                 profile.account_balance += entry_amount
+#                 profile.save()
+#                 return Response(
+#                     {"detail": "The contest is already full"},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+#             else:
+#                 self.perform_create(serializer)
+#                 return Response("Contest Created Successfully", status=status.HTTP_201_CREATED)
+#         else:
+#             # Handle unexpected errors
+#             return Response(
+#                 {"detail": "An unexpected error occurred while entering the contest"},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+#     def perform_create(self, serializer):
+#         profile = self.request.user.profile  # Get the profile from the authenticated user
+#         serializer.save(profile=profile)
+
+
+import requests
+from rest_framework.exceptions import ValidationError
+
 class ContestHistoryCreateView(generics.CreateAPIView):
     serializer_class = ContestHistorySerializer
     permission_classes = [IsAuthenticated]
@@ -26,12 +173,73 @@ class ContestHistoryCreateView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        return Response("Contest Created Successfully", status=status.HTTP_201_CREATED)
+
+        profile = request.user.profile  # Get the profile from the authenticated user
+        entry_amount = serializer.validated_data.get('entry_amount')
+        game_id = serializer.validated_data.get('game_id')
+
+        if profile.account_balance < entry_amount:
+            extra_needed = entry_amount - profile.account_balance
+            raise ValidationError(
+                {"detail": f"Insufficient balance. You need {extra_needed} more to enter the contest."}
+            )
+
+        # Deduct entry amount from account balance
+        profile.account_balance -= entry_amount
+        profile.save()
+
+        # Send PUT request to update fixture
+        response = requests.put(
+            f'https://api.balldraft.com/update-fixture/{game_id}',
+            headers={
+                'accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            json={'current_entry': 1}
+        )
+
+        # Print response
+        print(response.text)
+
+        response_data = response.json()
+        if response_data.get('message') == "The contest is full":
+            # Return entry amount to account balance
+            profile.account_balance += entry_amount
+            profile.save()
+            return Response(
+                {"detail": "The contest is already full"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        elif response.status_code == 200:
+            self.perform_create(serializer)
+            return Response("Contest Created Successfully", status=status.HTTP_201_CREATED)
+        else:
+            # Handle unexpected errors
+            return Response(
+                {"detail": "An unexpected error occurred while entering the contest"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def perform_create(self, serializer):
         profile = self.request.user.profile  # Get the profile from the authenticated user
         serializer.save(profile=profile)
+
+
+
+# class ContestHistoryCreateView(generics.CreateAPIView):
+#     serializer_class = ContestHistorySerializer
+#     permission_classes = [IsAuthenticated]
+
+#     @swagger_auto_schema(request_body=ContestHistorySerializer)
+#     def create(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         self.perform_create(serializer)
+#         return Response("Contest Created Successfully", status=status.HTTP_201_CREATED)
+
+#     def perform_create(self, serializer):
+#         profile = self.request.user.profile  # Get the profile from the authenticated user
+#         serializer.save(profile=profile)
 
 
 

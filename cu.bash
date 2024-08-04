@@ -1,12 +1,12 @@
-curl -X POST "http://127.0.0.1:9000/api/v1/contest/contest-history/" \
--H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIxODk5OTM5LCJpYXQiOjE3MjE4MTM1MzksImp0aSI6IjgxMGNkMzY5ODE1ZTQ2ZGM4NmMzNDlmMDk0NzM2ZjU0IiwidXNlcl9pZCI6Mn0.O_qEns55qnqGFZ_X2n9JHXVhcChdSr86aBfu-Q-a6CA" \
+curl -X POST "http://127.0.0.1:8000/api/v1/contest/contest-history/" \
+-H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIyNzg0MzEyLCJpYXQiOjE3MjI2OTc5MTIsImp0aSI6IjY5ZWNmMTdiMTMzZjQwNzE4MzU3NWJlZTE2YzQyOGNmIiwidXNlcl9pZCI6MX0.gCqMwwO8_3_ys8S6RojEl-ZtJrKFuoU7JUJi8eCp5zs" \
 -H "Content-Type: application/json" \
 -d '{
-    "game_id": 3247,
+    "game_id": 3002,
     "fixture_id": 1234160,
-    "profile": 2,
+    "profile": 1,
     "name": "Patriotas vs Fortaleza FC | Primera A",
-    "entry_amount": 500000,
+    "entry_amount": 5000,
     "league": "Primera A",
     "pending": true,
     "completed": false,
