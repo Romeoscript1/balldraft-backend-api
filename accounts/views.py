@@ -133,7 +133,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 # Check if the 2FA token is provided
                 if '2fa_token' not in request.data:
                     return Response({
-                        'detail': '2FA token required',
+                        'error': '2FA token required',
                         'access': response.data['access']
                     }, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -151,7 +151,7 @@ class PasswordResetRequestView(GenericAPIView):
     def post(self, request):
         serializer=self.serializer_class(data=request.data, context={'request':request})
         serializer.is_valid(raise_exception=True)
-        return Response({'message':"An email has been send to you to reset you password"}, status=status.HTTP_200_OK)
+        return Response({'message':"An email has been sent to you to reset you password"}, status=status.HTTP_200_OK)
 
 class PasswordResetConfirm(GenericAPIView):
     serializer_class=PasswordResetRequestSerializer
