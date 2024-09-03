@@ -92,7 +92,7 @@ WSGI_APPLICATION = 'balldraft.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'temp5DB',
+        'NAME': BASE_DIR / 'testDB',
     }
 }
 
@@ -228,3 +228,6 @@ CELERY_BEAT_SCHEDULE = {
 
 CELERY_BROKER_URL = env("CELERY_BROKER_URL")
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+
+OTP_EXPIRATION_TIME_SECONDS = 90

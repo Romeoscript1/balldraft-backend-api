@@ -4,7 +4,7 @@ from .serializers import (
     PasswordResetRequestSerializer, 
     SetNewPasswordSerializer,
     LogoutUserSerializer,
-    DDConfirmActionAccountSerializer, TOTPVerificationSerializer)
+    DDConfirmActionAccountSerializer, OTPSerializer)
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import AllowAny
@@ -14,8 +14,8 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 
-from .utils import send_verification_email
-from .models import EmailVerificationTOTP, User, ReasonToLeave
+from .utils import send_verification_email, send_code_to_user, hash_otp, generate_otp
+from .models import OneTimePassword, User, ReasonToLeave
 
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import smart_str, DjangoUnicodeDecodeError
@@ -28,74 +28,75 @@ from drf_yasg.utils import swagger_auto_schema
 from django.contrib.sites.shortcuts import get_current_site
 
 from django_otp.plugins.otp_totp.models import TOTPDevice
-from django_otp.util import random_hex
-import pyotp
 
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 User = get_user_model()
 
+from datetime import timedelta
+
+from django.conf import settings
+
+OTP_EXPIRATION_TIME_SECONDS = settings.OTP_EXPIRATION_TIME_SECONDS
+
 import logging
 
 logger = logging.getLogger(__name__)
 
-class RegisterUserView(APIView):
+class RegisterUserView(GenericAPIView):
     serializer_class = UserRegisterSerializer
 
-    @swagger_auto_schema(request_body=UserRegisterSerializer)
     @transaction.atomic
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            # Generate and send OTP after user is saved
-            self.create_and_send_otp(user)
-            return Response({
-                'data': serializer.data,
-                'message': f'Welcome {user.first_name} to Balldraft. Thanks for signing up. Check your mail for your passcode.'
-            }, status=status.HTTP_201_CREATED)
-        logger.error(f"Serializer errors: {serializer.errors}")
+            try:
+                # the send_code_to_user generates code and send
+                send_code_to_user(user.email)
+                
+                message = f'Welcome {user.first_name} to Balldraft. Thanks for signing up. Check your mail for your passcode.'
+                logger.info(f"User {user.email} registered successfully. OTP sent.")
+                return Response({'data': serializer.data, 'message': message}, status=status.HTTP_200_OK)
+            except Exception as e:
+                logger.error(f"Error sending OTP to {user.email}: {str(e)}")
+                return Response({"message": "Registration successful but failed to send OTP."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+        logger.error(f"Registration failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def create_and_send_otp(self, user):
-        otp_obj, created = EmailVerificationTOTP.objects.get_or_create(user=user)
-        if not created:
-            # If the OTP already exists, update the secret
-            otp_obj.secret = pyotp.random_base32()
-            logger.info(f"Updated OTP secret for user {user.email}: {otp_obj.secret}")
-        else:
-            otp_obj.secret = pyotp.random_base32()
-            logger.info(f"Created OTP secret for user {user.email}: {otp_obj.secret}")
-        otp_obj.save()
-        # Call the utility function to send the OTP email
-        send_verification_email(user, otp_obj.secret)
 
-class VerifyUserEmail(APIView):
-    @swagger_auto_schema(request_body=TOTPVerificationSerializer)
+class VerifyUserEmail(GenericAPIView): 
     def post(self, request):
-        serializer = TOTPVerificationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        email = serializer.validated_data.get('email')
-        otp = serializer.validated_data.get('otp')
-        
+        otp_code = request.data.get('otp')
+        email = request.data.get('email')
+
+        if not otp_code or not email:
+            return Response({"message": "OTP and email are required."}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            user = User.objects.get(email=email)
-            verification_record = EmailVerificationTOTP.objects.get(user=user)
-            
-            totp = pyotp.TOTP(verification_record.secret)
-            
-            # Verify OTP
-            if totp.verify(otp):
-                with transaction.atomic():
-                    user.is_active = True
+            otp_obj = OneTimePassword.objects.get(email=email)
+
+            if otp_obj.is_expired():
+                otp_obj.delete()
+                return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+            hashed_otp_code = hash_otp(otp_code)
+            if otp_obj.code == hashed_otp_code:
+                user = User.objects.get(email=email)
+                if not user.is_verified:
+                    user.is_verified = True
                     user.save()
-                    verification_record.delete()
-                return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
+                    return Response({"message": "Account email verified successfully"}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"message": "User is already verified"}, status=status.HTTP_204_NO_CONTENT)
             else:
-                return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
-        except (User.DoesNotExist, EmailVerificationTOTP.DoesNotExist):
-            return Response({'error': 'Invalid email or OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"message": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+        except OneTimePassword.DoesNotExist:
+            return Response({"message": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            return Response({"message": "User not found."}, status=status.HTTP_400_BAD_REQUEST)
         
 class ResendCodeView(APIView):
     def post(self, request):
@@ -106,19 +107,20 @@ class ResendCodeView(APIView):
 
         try:
             user = User.objects.get(email=email)
-            otp_obj, created = EmailVerificationTOTP.objects.get_or_create(user=user)
-            
-            # Update secret if OTP already exists
-            if not created:
-                otp_obj.secret = pyotp.random_base32()
-                otp_obj.save()
-            
-            # Send new OTP code
-            send_verification_email(user, otp_obj.secret)
-            return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            return Response({"error": "User with this email does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+            existing_otp = OneTimePassword.objects.filter(email=email).first()
+            if existing_otp:
+                if existing_otp.is_expired():
+                    existing_otp.delete()
+                    send_code_to_user(email)  
+                    return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"error": "OTP previously sent is still valid"}, status=status.HTTP_400_BAD_REQUEST)
 
+        except OneTimePassword.DoesNotExist:
+            send_code_to_user(email) 
+            return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": "Failed to send new OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]

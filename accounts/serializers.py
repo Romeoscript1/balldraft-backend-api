@@ -1,6 +1,6 @@
 from datetime import timedelta, datetime
 from rest_framework import serializers
-from .models import User, EmailVerificationTOTP
+from .models import User, OneTimePassword
 
 from rest_framework.exceptions import AuthenticationFailed
 
@@ -8,7 +8,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.contrib.sites.shortcuts import get_current_site
 from django.utils.encoding import force_bytes, force_str, DjangoUnicodeDecodeError
-from .utils import send_reset_password_email
+from .utils import send_verification_email
 
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError, AccessToken
 
@@ -42,9 +42,20 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         return User.objects.create_user(**validated_data)
 
 
-class TOTPVerificationSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    otp = serializers.CharField(max_length=6, min_length=6)
+class OTPSerializer(serializers.ModelSerializer):
+    code = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = OneTimePassword
+        fields = ['email', 'code']
+
+    def validate_code(self, value):
+        """
+        Optional: Validate that the OTP code is the correct length and format.
+        """
+        if not value.isdigit() or len(value) != 6:
+            raise serializers.ValidationError({"error":"Invalid OTP format."})
+        return value
 
         
 class PasswordResetRequestSerializer(serializers.Serializer):
@@ -66,7 +77,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
                 'email_subject': 'Reset your Password',
                 'to_email': user.email
             }
-            send_reset_password_email(data)
+            send_verification_email(data)
         else:
             raise serializers.ValidationError({"error": "user with this Email Address does not exist."})
         return super().validate(attrs)
