@@ -73,7 +73,7 @@ import requests
 
 #         # Send PUT request to update fixture
 #         response = requests.put(
-#             f'https://api.balldraft.com/update-fixture/{game_id}',
+#             f'https://microservice.balldraft.com/update-fixture/{game_id}',
 #             headers={
 #                 'accept': 'application/json',
 #                 'Content-Type': 'application/json'
@@ -129,7 +129,7 @@ import requests
 
 #         # Send PUT request to update fixture
 #         response = requests.put(
-#             f'https://api.balldraft.com/update-fixture/{game_id}',
+#             f'https://microservice.balldraft.com/update-fixture/{game_id}',
 #             headers={
 #                 'accept': 'application/json',
 #                 'Content-Type': 'application/json'
@@ -190,7 +190,7 @@ class ContestHistoryCreateView(generics.CreateAPIView):
 
         # Send PUT request to update fixture
         response = requests.put(
-            f'https://api.balldraft.com/update-fixture/{game_id}',
+            f'https://microservice.balldraft.com/update-fixture/{game_id}',
             headers={
                 'accept': 'application/json',
                 'Content-Type': 'application/json'

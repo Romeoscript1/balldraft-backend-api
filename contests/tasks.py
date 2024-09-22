@@ -30,14 +30,13 @@ def send_email(subject, body, recipient):
     email.send()
 
 
-
 @shared_task
 def update_contest_history():
     try:
         for c in ContestHistory.objects.filter(pending=True):
             id = c.game_id 
             fixture_id = c.fixture_id
-            response = requests.get(f"https://api.balldraft.com/search-fixtures?keyword={id}&limit=1")
+            response = requests.get(f"https://microservice.balldraft.com/search-fixtures?keyword={id}&limit=1")
             response.raise_for_status()
             data = response.json()
 
@@ -75,7 +74,7 @@ def update_contest_history():
             logger.info(f"Request Body: {request_body}")
 
             points_response = requests.post(
-                "https://api.balldraft.com/calculate-points/",
+                "https://microservice.balldraft.com/calculate-points/",
                 json=request_body
             )
 
@@ -88,8 +87,8 @@ def update_contest_history():
                 contest.total_points = points_data['scores'].get(user_key, 0)
                 contest.completed = True
                 contest.pending = False
-                contest.pool_price = Decimal(fixture['total_to_win'])
-                contest.league_name = fixture['league_name']
+                # contest.pool_price = Decimal(fixture['total_to_win'])
+                # contest.league_name = fixture['league_name']
                 contest.save()
 
                 # send_email(
@@ -111,7 +110,7 @@ def update_contest_history():
 #     - get all ContestHistory.objects.filter(positions=False && completed=True)
 #     - get the game_id of  a contesthistory, then check if there're other types of
 #     such fixtures in the db, that the game_id are same, then gather then all
-#     - run a get request to this "https://api.balldraft.com/search-fixtures?keyword={game_id}&limit=1" 
+#     - run a get request to this "https://microservice.balldraft.com/search-fixtures?keyword={game_id}&limit=1" 
 #     - if there's a response, check if the current_entry value is == to the max_entry value, if false, then
 #             Return the entry_amount to the won_amount field in the contesthistory model
 #             and send an email that the contest was filled, so all contests are refunded
@@ -137,7 +136,7 @@ def algorithms_for_distribution_position():
             game_id = contest.game_id
             related_contests = ContestHistory.objects.filter(game_id=game_id)
             
-            response = requests.get(f"https://api.balldraft.com/search-fixtures?keyword={game_id}&limit=1")
+            response = requests.get(f"https://microservice.balldraft.com/search-fixtures?keyword={game_id}&limit=1")
             response.raise_for_status()
             data = response.json()
 
@@ -209,6 +208,7 @@ def distribute_profits_to_contests():
                     winner = ContestHistory.objects.get(id=total_points[0][0])
                     winner.won_amount += Decimal(0.9 * pool_price)
                     winner.profit = True
+                    winner.profile.account_balance += float(winner.won_amount)
                     winner.save()
                     send_email(
                         subject="H2H Contest Winner Notification",
@@ -229,6 +229,7 @@ def distribute_profits_to_contests():
                     winner = ContestHistory.objects.get(id=total_points[0][0])
                     winner.won_amount += Decimal(0.9 * pool_price)
                     winner.profit = True
+                    winner.profile.account_balance += float(winner.won_amount)
                     winner.save()
                     send_email(
                         subject="H2H Contest Winner Notification",
@@ -256,7 +257,7 @@ def distribute_profits_to_contests():
                 2: (1, 7500, 10000, 15000, 25000, 50000, 75000, 250000, 750000),
                 3: (1, 5000, 7500, 10000, 15000, 25000, 50000, 200000, 500000),
                 4: (4, 600, 1500, 3000, 7500, 15000, 30000, 150000, 350000),
-                5: (501, 400, 1000, 2000, 5000, 10000, 20000, 100000, 300000),
+                5: (504, 400, 1000, 2000, 5000, 10000, 20000, 100000, 300000),
                 6: (1351, 200, 500, 1000, 2500, 5000, 10000, 50000, 250000),
                 7: (1851, 100, 250, 500, 1250, 2500, 5000, 25000, 125000),
                 8: (2476, 75, 125, 250, 625, 1250, 2500, 12500, 62500),

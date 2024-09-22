@@ -1,5 +1,5 @@
 curl -X POST "http://127.0.0.1:8000/api/v1/contest/contest-history/" \
--H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIyNzg0MzEyLCJpYXQiOjE3MjI2OTc5MTIsImp0aSI6IjY5ZWNmMTdiMTMzZjQwNzE4MzU3NWJlZTE2YzQyOGNmIiwidXNlcl9pZCI6MX0.gCqMwwO8_3_ys8S6RojEl-ZtJrKFuoU7JUJi8eCp5zs" \
+-H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzI1MzczMzQ0LCJpYXQiOjE3MjUyODY5NDQsImp0aSI6ImFjNDRmMzE4YWQwYTQxNzZhOTAwNzVjZDU5ZjQ2ODY1IiwidXNlcl9pZCI6MX0.s1m53yN9cywzGvbOHLmbYOO-KVFxSM-qXDYgOUAQUuE" \
 -H "Content-Type: application/json" \
 -d '{
     "game_id": 3002,
@@ -26,5 +26,7 @@ curl -X POST "http://127.0.0.1:8000/api/v1/contest/contest-history/" \
         {"player_id": 196851, "name": "C. De Las Salas", "image_url": "https://media.api-sports.io/football/players/59802.png", "team_player_id": 1140, "fixture_player_id": 1234160, "points": 0, "position": "Defender"}
     ]
 }'
+
+
 
 

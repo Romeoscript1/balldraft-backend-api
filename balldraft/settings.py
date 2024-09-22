@@ -105,6 +105,8 @@ REST_FRAMEWORK = {
 
 }
 
+
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
@@ -227,3 +229,16 @@ CELERY_BEAT_SCHEDULE = {
 
 CELERY_BROKER_URL = env("CELERY_BROKER_URL")
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+
+SWAGGER_SETTINGS = {
+    "SECURITY_DEFINITIONS": {
+        "Auth Token eg [Bearer {JWT}]": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+        }
+    }
+
+    
+}
