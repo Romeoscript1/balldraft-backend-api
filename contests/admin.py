@@ -13,3 +13,4 @@ class PlayerAdmin(admin.ModelAdmin):
 
 admin.site.register(ContestHistory)
 admin.site.register(Player)
+admin.site.register(Slider)

@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.utils.text import slugify
 from profiles.models import Profile
 from django import forms
+from .validators import FileValidator
 
 
 class Player(models.Model):
@@ -44,3 +45,36 @@ class ContestHistory(models.Model):
 
     def __str__(self):
         return f'{self.profile.username} - {self.name}'
+
+
+class Slider(models.Model):
+    TEXT_MAX_LENGTH = 500  
+
+    title = models.CharField(max_length=255, blank=True, null=True, help_text="Optional title for the slider item")
+    text = models.TextField(max_length=TEXT_MAX_LENGTH, help_text="Text content for the slider")
+    image = models.ImageField(upload_to='slider_images/', blank=True, null=True, help_text="Upload SVG/PNG images")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title if self.title else f"Slider item #{self.pk}"
+
+
+
+class Slider(models.Model):
+    TEXT_MAX_LENGTH = 300  
+
+    title = models.CharField(max_length=255, blank=True, null=True, help_text="Optional title for the slider item")
+    text = models.TextField(max_length=TEXT_MAX_LENGTH, help_text="Text content for the slider")
+    image = models.FileField(
+        upload_to='slider_images/',
+        blank=True,
+        null=True,
+        help_text="Upload SVG/PNG images",
+        validators=[FileValidator()]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title if self.title else f"Slider item #{self.pk}"

@@ -162,8 +162,6 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
 #STATIC_ROOT = os.path.join(BASE_DIR, 'static')
@@ -172,8 +170,8 @@ STATICFILES_DIRS = (os.path.join(BASE_DIR,'staticfiles'),)
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
+
+
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
@@ -182,7 +180,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DEFAULT_FROM_EMAIL='benjaminparish6@gmail.com'
 
 
-# settings.py
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
@@ -211,19 +208,25 @@ PAYMENT_TRANSACTION_CALLBACK_URL = env("PAYMENT_TRANSACTION_CALLBACK_URL")
 # ## Development purposes
 
 CELERY_BEAT_SCHEDULE = {
-   'update-contest-history-live-and-completed': {
-       'task': 'contests.tasks.update_contest_history',
-       'schedule': timedelta(seconds=10),  
-   },
-    'algorithms_for_distribution_for_positions': {
-       'task': 'contests.tasks.algorithms_for_distribution_position',
-       'schedule': timedelta(seconds=20),  
+#    'update-contest-history-live-and-completed': {
+#        'task': 'contests.tasks.update_contest_history',
+#        'schedule': timedelta(seconds=10),  
+#    },
+#     'algorithms_for_distribution_for_positions': {
+#        'task': 'contests.tasks.algorithms_for_distribution_position',
+#        'schedule': timedelta(seconds=20),  
+#     },
+
+#      'distribute_profits_to_contests': {
+#        'task': 'contests.tasks.distribute_profits_to_contests',
+#        'schedule': timedelta(seconds=30),  
+#     },
+
+    'verify-pending-payments-every-5-seconds': {
+        'task': 'profiles.tasks.verify_pending_payments', 
+        'schedule': timedelta(seconds=5),  
     },
 
-     'distribute_profits_to_contests': {
-       'task': 'contests.tasks.distribute_profits_to_contests',
-       'schedule': timedelta(seconds=30),  
-    },
 }
 
 

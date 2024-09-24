@@ -8,7 +8,7 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser
 from accounts.views import VerifyUserEmail
 from profiles.serializers import (
-                                ProfileSerializer, EmailChangeSerializer,HelpSerializer,  WithdrawSerializer,NotificationSerializer, PaymentSerializer, PaymentVerifySerializer, UserActivitySerializer)
+                                ProfileSerializer, EmailChangeSerializer,HelpSerializer,  WithdrawSerializer,NotificationSerializer, PaymentSerializer, PaymentVerifySerializer, UserActivitySerializer, TransactionHistorySerializer)
 from profiles.models import *
 from paystackapi.paystack import Paystack
 from paystackapi.transaction import Transaction
@@ -20,12 +20,16 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from paystackapi.transaction import Transaction
 import uuid
+paystack = Paystack(secret_key=settings.PAYSTACK_SECRET_KEY)
 
 from django.conf import settings
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+
 
 def send_email(subject,body,recipient):
     name = "Balldraft Fantasy"
@@ -122,7 +126,6 @@ class HelpmeView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-paystack = Paystack(secret_key=settings.PAYSTACK_SECRET_KEY)
 class WithdrawCreateView(generics.CreateAPIView):
     serializer_class = WithdrawSerializer
     permission_classes = [IsAuthenticated]
@@ -167,6 +170,7 @@ class WithdrawCreateView(generics.CreateAPIView):
             reference=reference
         )
 
+
         # Initialize Paystack transfer
         transfer_data = {
             "source": "balance",
@@ -179,17 +183,30 @@ class WithdrawCreateView(generics.CreateAPIView):
 
         if not transfer_response['status']:
             withdrawal.delete()
+            TransactionHistory.objects.create(
+            profile=profile,
+            action=f"Withdrawal of NGN {ngn_amount} to {bank_name} - {account_number} Failed",
+            action_title="Withdrawal Failed",
+            category="Withdrawal"
+        )
             return Response({'error': 'Unable to initiate Paystack transfer', 'details': transfer_response['message']}, status=status.HTTP_400_BAD_REQUEST)
 
         # Update profile balance
         profile.account_balance -= float(ngn_amount)
         profile.save()
 
+        TransactionHistory.objects.create(
+            profile=profile,
+            action=f"Withdrawal of NGN {ngn_amount} to {bank_name} - {account_number}",
+            action_title="Withdrawal Pending",
+            category="Withdrawal"
+        )
+
         return Response({'message': 'Withdrawal request created successfully'}, status=status.HTTP_201_CREATED)
 
     def get_bank_code(self, bank_name):
         bank_codes = {
-            'Access Bank': '044',
+        'Access Bank': '044',
         'Citibank Nigeria': '023',
         'Diamond Bank': '063',
         'Ecobank Nigeria': '050',
@@ -230,10 +247,29 @@ class WithdrawCreateView(generics.CreateAPIView):
             
         }
         return bank_codes.get(bank_name, None)
-    
-    
+      
 
-class WithdrawVerifyView(generics.UpdateAPIView):
+# class WithdrawVerifyView(generics.UpdateAPIView):
+#     serializer_class = WithdrawSerializer
+#     permission_classes = [IsAuthenticated]
+#     queryset = Withdraw.objects.all()
+#     lookup_field = 'reference'
+
+#     @swagger_auto_schema(request_body=PaymentVerifySerializer)
+#     def update(self, request, *args, **kwargs):
+#         withdrawal = self.get_object()
+
+#         if not withdrawal.verified:
+#             reference = request.data.get('reference')
+#             try:
+#                 withdraw = withdrawal.objects.get(reference=reference, profile=request.user.profile)
+#                 return Response({'error': 'Withdrawal request not found'}, status=status.HTTP_404_NOT_FOUND)
+#             except Withdraw.DoesNotExist:
+#                 return Response({'error': 'Withdrawal does not exist'}, status=status.HTTP_404_NOT_FOUND)
+#         else:
+#             return Response({'message': 'Withdrawal is already verified'}, status=status.HTTP_400_BAD_REQUEST)
+
+class WithdrawVerifyView(generics.ListAPIView):
     serializer_class = WithdrawSerializer
     permission_classes = [IsAuthenticated]
     queryset = Withdraw.objects.all()
@@ -246,10 +282,23 @@ class WithdrawVerifyView(generics.UpdateAPIView):
         if not withdrawal.verified:
             reference = request.data.get('reference')
             try:
-                withdraw = withdrawal.objects.get(reference=reference, profile=request.user.profile)
-                return Response({'error': 'Withdrawal request not found'}, status=status.HTTP_404_NOT_FOUND)
+                withdrawal = Withdraw.objects.get(reference=reference, profile=request.user.profile)
             except Withdraw.DoesNotExist:
-                return Response({'error': 'Withdrawal does not exist'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'error': 'Withdrawal request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Assume withdrawal verification logic here
+            withdrawal.verified = True
+            withdrawal.save()
+
+            # Log the transaction history for verified withdrawal
+            TransactionHistory.objects.create(
+                profile=request.user.profile,
+                action=f"Verified withdrawal of NGN {withdrawal.ngn_amount}",
+                action_title="Withdrawal Successful !!",
+                category="Withdrawal"
+            )
+
+            return Response({'message': 'Withdrawal verified successfully'}, status=status.HTTP_200_OK)
         else:
             return Response({'message': 'Withdrawal is already verified'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -273,6 +322,13 @@ class PaymentCreateView(generics.CreateAPIView):
 
         # Create payment record
         payment = Payment.objects.create(profile=profile, ngn_amount=ngn_amount, reference=reference)
+        # Log the transaction history
+        TransactionHistory.objects.create(
+                profile=request.user.profile,
+                action=f"Deposit of NGN {payment.ngn_amount} Pending",
+                action_title="Deposit Pending",
+                category="Deposit"
+            )
 
         # Initialize Paystack transaction
         transaction = Transaction.initialize(reference=reference, amount=int(ngn_amount) * 100, email=request.user.email, callback_url=settings.PAYMENT_TRANSACTION_CALLBACK_URL)
@@ -307,6 +363,14 @@ class PaymentVerifyView(generics.GenericAPIView):
             payment.status = 'success'
             payment.profile.account_balance += float(payment.ngn_amount)
             payment.profile.save()
+
+            # Log the transaction history for successful payment
+            TransactionHistory.objects.create(
+                profile=request.user.profile,
+                action=f"Deposit of NGN {payment.ngn_amount} verified",
+                action_title="Deposit Successful!!",
+                category="Deposit"
+            )
         else:
             payment.status = 'failed'
         payment.save()
@@ -314,30 +378,84 @@ class PaymentVerifyView(generics.GenericAPIView):
         return Response({'status': payment.status}, status=status.HTTP_200_OK)
 
 
-
-
 class ProfileView(RetrieveUpdateAPIView):
     serializer_class = ProfileSerializer
     permission_classes = [IsAuthenticated]
-
 
     def get_object(self):
         profile, created = Profile.objects.get_or_create(user=self.request.user)
         return profile
 
+    def retrieve(self, request, *args, **kwargs):
+        profile = self.get_object()
+        user = request.user
+
+        # Fetch the user activity data
+        last_login = user.last_login
+
+        # Get the most recent verified deposit made by the user
+        recent_deposit = Deposit.objects.filter(profile=profile, verified=True).order_by('-time').first()
+        if recent_deposit:
+            recent_deposit_time = recent_deposit.time.strftime('%B %d, %Y') if recent_deposit.time else "Invalid date format"
+            recent_deposit_amount = str(recent_deposit.ngn_amount)
+        else:
+            recent_deposit_time = "No recent deposit made"
+            recent_deposit_amount = "No recent deposit made"
+
+        # Fetch total points from the profile property
+        total_points = profile.total_points
+
+        # Update the profile object with user activity data
+        data = {
+            'last_login': last_login,
+            'recent_deposit_time': recent_deposit_time,
+            'recent_deposit_amount': recent_deposit_amount,
+            'total_points': total_points
+        }
+
+        serializer = self.get_serializer(profile)
+        response_data = serializer.data
+        response_data.update(data)  # Merge user activity data with profile data
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
     @swagger_auto_schema(request_body=ProfileSerializer)
     def put(self, request, *args, **kwargs):
-        user = self.get_object()  # Get the profile object associated with the user
-        serializer = ProfileSerializer(user, data=request.data, partial=True)
+        profile = self.get_object()
+        serializer = ProfileSerializer(profile, data=request.data, partial=True)
 
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return self.retrieve(request, *args, **kwargs)  # Include updated data with activity info
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(request_body=ProfileSerializer)
     def patch(self, request, *args, **kwargs):
         return self.put(request, *args, **kwargs)
+     
+
+# class ProfileView(RetrieveUpdateAPIView):
+#     serializer_class = ProfileSerializer
+#     permission_classes = [IsAuthenticated]
+
+
+#     def get_object(self):
+#         profile, created = Profile.objects.get_or_create(user=self.request.user)
+#         return profile
+
+#     @swagger_auto_schema(request_body=ProfileSerializer)
+#     def put(self, request, *args, **kwargs):
+#         user = self.get_object()  # Get the profile object associated with the user
+#         serializer = ProfileSerializer(user, data=request.data, partial=True)
+
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_200_OK)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#     @swagger_auto_schema(request_body=ProfileSerializer)
+#     def patch(self, request, *args, **kwargs):
+#         return self.put(request, *args, **kwargs)
 
 
 class NotificationListView(generics.ListAPIView):
@@ -368,7 +486,6 @@ def delete_notification(request, pk):
     notification.delete()
     return Response({'status': 'Notification deleted'}, status=status.HTTP_200_OK)
 
-
 class EmailChangeView(UpdateAPIView):
     serializer_class = EmailChangeSerializer
     permission_classes = [IsAuthenticated]
@@ -393,42 +510,18 @@ class EmailChangeView(UpdateAPIView):
     def patch(self, request, *args, **kwargs):
         return self.update(request, *args, **kwargs)
     
-    
-# class ReferralListView(generics.ListAPIView):
-#     serializer_class = ReferralSerializer
-#     permission_classes = [IsAuthenticated]
+class TransactionHistoryListView(generics.ListAPIView):
+    serializer_class = TransactionHistorySerializer
+    permission_classes = [IsAuthenticated]
 
-#     def get_queryset(self):
-#         return Referral.objects.filter(profile=self.request.user.profile)
-    
-#     def list(self, request, *args, **kwargs):
-#         queryset = self.get_queryset()
-#         if not queryset.exists():
-#             return Response({"message": "No referrals "}, status=200)
-#         serializer = self.get_serializer(queryset, many=True)
-#         return Response(serializer.data)
+    def get_queryset(self):
+        return TransactionHistory.objects.filter(profile=self.request.user.profile).order_by('-time')
 
-# class ReferralCreateView(generics.CreateAPIView):
-#     serializer_class = ReferralSerializer
-#     permission_classes = [AllowAny]
+class TransactionHistoryDetailView(generics.RetrieveAPIView):
+    serializer_class = TransactionHistorySerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = 'id'
 
-#     @swagger_auto_schema(request_body=ReferralSerializer)
-#     def create(self, request, *args, **kwargs):
-#         serializer = self.get_serializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-#         self.perform_create(serializer)
-#         headers = self.get_success_headers(serializer.data)
-#         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-#     def perform_create(self, serializer):
-#         serializer.save()
-
-# class ReferralDetailView(generics.RetrieveAPIView):
-#     serializer_class = ReferralSerializer
-#     permission_classes = [IsAuthenticated]
-#     lookup_field = 'pk'
-
-#     def get_queryset(self):
-#         return Referral.objects.filter(profile=self.request.user.profile) 
-
+    def get_queryset(self):
+        return TransactionHistory.objects.filter(profile=self.request.user.profile)
 

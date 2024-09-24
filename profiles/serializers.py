@@ -1,14 +1,24 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from profiles.models import Profile, Notification,Payment, Withdraw
+from profiles.models import Profile, Notification,Payment, Withdraw, TransactionHistory
 
 class ProfileSerializer(serializers.ModelSerializer):
+    last_login = serializers.DateTimeField(source='user.last_login', read_only=True)
+    recent_deposit_time = serializers.CharField(read_only=True)
+    recent_deposit_amount = serializers.CharField(read_only=True)
+    total_points = serializers.FloatField(read_only=True)  # Removed the `source` parameter
+
     class Meta:
         model = Profile
-        fields = ['username', 'full_name', 'dob', 'email', 'address',
-                  'city', 'state', 'country', 'zip_code',
-                    'mobile_number', 'bank', 'account_number', 'account_name', 
-                    'account_balance', 'pending_balance']
+        fields = [
+            'id', 'username', 'address', 'mobile_number', 'bank', 'account_number', 
+            'account_name', 'referral_people', 'referred_by', 'account_balance', 
+            'pending_balance', 'country', 'state', 'city', 'zip_code', 'image',
+            'last_login', 'recent_deposit_time', 'recent_deposit_amount', 'total_points'
+        ]
+        read_only_fields = ['id', 'referral_people', 'referred_by', 'account_balance', 
+                            'pending_balance', 'last_login', 'recent_deposit_time', 
+                            'recent_deposit_amount', 'total_points']
 
 class EmailChangeSerializer(serializers.Serializer):
     new_email = serializers.EmailField(max_length=255)
@@ -25,47 +35,15 @@ class NotificationSerializer(serializers.ModelSerializer):
         fields = ['id', 'profile', 'action', 'time', 'action_title', 'read']
         read_only_fields = ['id', 'profile', 'time']
         
-
-# class ReferralSerializer(serializers.ModelSerializer):
-#     referred_by = serializers.CharField(write_only=True)
-
-#     class Meta:
-#         model = Referral
-#         fields = ['id', 'profile','date_joined', 'referred_by']
-#         read_only_fields = ['id', 'profile', 'date_joined']
-
-#     def create(self, validated_data):
-#         referred_by_username = validated_data.pop('referred_by')
-#         request = self.context.get('request')
-#         try:
-#             referrer_profile = Profile.objects.get(username=referred_by_username)
-#         except Profile.DoesNotExist:
-#             raise serializers.ValidationError({'referred_by': 'Profile with this username does not exist.'})
-        
-#         # Create the referral instance
-#         referred_profile = Profile.objects.get(user=request.user)
-#         referral = Referral.objects.create(profile=referrer_profile, username=referred_profile, 
-#                                            date_joined=validated_data.get('date_joined'))
-
-#         # Update referrer profile's referral_people count
-#         referrer_profile.referral_people += 1
-#         referrer_profile.save()
-        
-#         return referral
-
-    
-    
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = ['id', 'ngn_amount', 'reference', 'status', 'created_at', 'updated_at']
         read_only_fields = ['id', 'reference', 'status', 'created_at', 'updated_at']
 
-
 class PaymentVerifySerializer(serializers.Serializer):
     reference = serializers.CharField(max_length=100)
-    
-    
+      
 class WithdrawSerializer(serializers.ModelSerializer):
     class Meta:
         model = Withdraw
@@ -75,18 +53,21 @@ class WithdrawSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'profile', 'time', 'verified']
 
-
-
-
 class UserActivitySerializer(serializers.Serializer):
     last_login = serializers.DateTimeField()
     recent_deposit_time = serializers.CharField()
     recent_deposit_amount = serializers.CharField()
     total_points = serializers.FloatField()
 
-
 class HelpSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100, required=True)
     email = serializers.EmailField(required=True)
     subject = serializers.CharField(max_length=150, required=True)
     message = serializers.CharField(required=True, max_length=2000)
+
+class TransactionHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TransactionHistory
+        fields = ['id', 'profile', 'action', 'time', 'action_title', 'category']
+        read_only_fields = ['id', 'profile', 'action', 'time', 'action_title', 'category']
+
