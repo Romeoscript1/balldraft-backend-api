@@ -46,8 +46,8 @@ def verify_pending_payments():
             payment.profile.account_balance += float(payment.ngn_amount)
             payment.profile.save()
 
-            email_subject = "Balldraft | Account Funding Successful"
-            email_message = f"Your Deposit of {ngn_amount} Is Successful, The Funds have arrived in your balance"
+            subject = "Balldraft | Account Funding Successful"
+            message = f"Your Deposit of {ngn_amount} Is Successful, The Funds have arrived in your balance"
             recipient_list = request.user.email  
             
             send_email(

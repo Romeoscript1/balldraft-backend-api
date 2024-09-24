@@ -9,6 +9,7 @@ class TransactionHistorySerializer(serializers.ModelSerializer):
         model = TransactionHistory
         fields = ['id', 'profile', 'action', 'time', 'action_title', 'category']
         read_only_fields = ['id', 'profile', 'action', 'time', 'action_title', 'category']
+        ref_name = 'TransactionHistory' 
 
 class ProfileSerializer(serializers.ModelSerializer):
     last_login = serializers.DateTimeField(source='user.last_login', read_only=True)
@@ -29,6 +30,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'referral_people', 'referred_by', 'account_balance', 
                             'pending_balance', 'last_login', 'recent_deposit_time', 
                             'recent_deposit_amount', 'total_points', 'last_four_transactions']
+        ref_name = 'ProfileTransactionHistory'
 
 class EmailChangeSerializer(serializers.Serializer):
     new_email = serializers.EmailField(max_length=255)
@@ -78,10 +80,4 @@ class HelpSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     subject = serializers.CharField(max_length=150, required=True)
     message = serializers.CharField(required=True, max_length=2000)
-
-class TransactionHistorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TransactionHistory
-        fields = ['id', 'profile', 'action', 'time', 'action_title', 'category']
-        read_only_fields = ['id', 'profile', 'action', 'time', 'action_title', 'category']
 

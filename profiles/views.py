@@ -108,8 +108,8 @@ class HelpmeView(APIView):
             message = serializer.validated_data['message']
 
             # Prepare email content
-            email_subject = f"Support Request from {name}: {subject}"
-            email_message = f"Message from {name} ({email}):\n\n{message}"
+            subject = f"Support Request from {name}: {subject}"
+            message = f"Message from {name} ({email}):\n\n{message}"
             recipient_list = settings.SUPPORT_EMAIL  
             
             # Send email
@@ -190,8 +190,8 @@ class WithdrawCreateView(generics.CreateAPIView):
             category="Withdrawal"
         )
             # Prepare email & send content
-            email_subject = "Balldraft | Withdrawal Failed"
-            email_message = f"Your Withdrawal of {int(float(ngn_amount) * 100)} Failed, Contact support is you were debited"
+            subject = "Balldraft | Withdrawal Failed"
+            message = f"Your Withdrawal of {int(float(ngn_amount) * 100)} Failed, Contact support is you were debited"
             recipient_list = request.user.email  
             
             send_email(
@@ -207,8 +207,8 @@ class WithdrawCreateView(generics.CreateAPIView):
         profile.save()
 
      # Prepare email & send content
-        email_subject = "Balldraft | Withdrawal Successful"
-        email_message = f"Your Withdrawal of {int(float(ngn_amount) * 100)} Is Successful"
+        subject = "Balldraft | Withdrawal Successful"
+        message = f"Your Withdrawal of {int(float(ngn_amount) * 100)} Is Successful"
         recipient_list = request.user.email  
             
         send_email(
@@ -354,8 +354,8 @@ class PaymentCreateView(generics.CreateAPIView):
                 category="Deposit"
             )
 
-        email_subject = "Balldraft | Deposit Request"
-        email_message = f"Your Deposit of {ngn_amount} Is Pending, Contact support is you encounter any issues"
+        subject = "Balldraft | Deposit Request"
+        message = f"Your Deposit of {ngn_amount} Is Pending, Contact support is you encounter any issues"
         recipient_list = request.user.email  
         
         send_email(
