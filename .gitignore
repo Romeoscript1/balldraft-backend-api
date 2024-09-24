@@ -4,7 +4,9 @@ temp3DB
 temp3DB.sql
 temp4DB
 temp5DB
+DevDB.db
 
+c1.bash
 .venv/*
 venv/
 key.pem
