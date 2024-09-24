@@ -4,8 +4,7 @@ from .serializers import (
     PasswordResetRequestSerializer, 
     SetNewPasswordSerializer,
     LogoutUserSerializer,
-    ReferralSerializer,
-    DDConfirmActionAccountSerializer, TOTPVerificationSerializer)
+    DDConfirmActionAccountSerializer, OTPSerializer,ReferralSerializer)
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db import IntegrityError
@@ -15,11 +14,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
-
-from .utils import send_verification_email
-from .models import EmailVerificationTOTP, User, ReasonToLeave
-# accounts/views.py
 from django.shortcuts import redirect
+
+from .utils import send_code_to_user, hash_otp, generate_otp
+from .models import OneTimePassword, User, ReasonToLeave, Referral
 
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -42,17 +40,18 @@ from drf_yasg.utils import swagger_auto_schema
 from django.contrib.sites.shortcuts import get_current_site
 
 from django_otp.plugins.otp_totp.models import TOTPDevice
-from django_otp.util import random_hex
-import pyotp
 
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 User = get_user_model()
 
+from django.conf import settings
+
+OTP_EXPIRATION_TIME_SECONDS = settings.OTP_EXPIRATION_TIME_SECONDS
+
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 
 
@@ -74,322 +73,16 @@ class ReferralListView(generics.ListAPIView):
         return Response({"referrals": serializer.data, "referral_link": referral_link})
 
 
-# class RegisterUserView(APIView):
-#     serializer_class = UserRegisterSerializer
-
-#     @swagger_auto_schema(request_body=UserRegisterSerializer)
-#     @transaction.atomic
-#     def post(self, request):
-#         serializer = self.serializer_class(data=request.data)
-#         if serializer.is_valid():
-#             user = serializer.save()
-#             # Generate and send OTP after user is saved
-#             self.create_and_send_otp(user)
-#             return Response({
-#                 'data': serializer.data,
-#                 'message': f'Welcome {user.first_name} to Balldraft. Thanks for signing up. Check your mail for your passcode.'
-#             }, status=status.HTTP_201_CREATED)
-#         logger.error(f"Serializer errors: {serializer.errors}")
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def create_and_send_otp(self, user):
-#         otp_obj, created = EmailVerificationTOTP.objects.get_or_create(user=user)
-#         if not created:
-#             # If the OTP already exists, update the secret
-#             otp_obj.secret = pyotp.random_base32()
-#             logger.info(f"Updated OTP secret for user {user.email}: {otp_obj.secret}")
-#         else:
-#             otp_obj.secret = pyotp.random_base32()
-#             logger.info(f"Created OTP secret for user {user.email}: {otp_obj.secret}")
-#         otp_obj.save()
-#         # Call the utility function to send the OTP email
-#         send_verification_email(user, otp_obj.secret)
-
-
-# class RegisterUserView(APIView):
-#     serializer_class = UserRegisterSerializer
-
-#     @swagger_auto_schema(request_body=UserRegisterSerializer)
-#     @transaction.atomic
-#     def post(self, request):
-#         # Check for a referral code in the session
-#         referral_code = request.session.get('referral_code', None)
-
-#         serializer = self.serializer_class(data=request.data)
-#         if serializer.is_valid():
-#             user = serializer.save()
-            
-#             # Try to create a Profile and handle any potential issues
-#             try:
-#                 profile, created = Profile.objects.get_or_create(user=user)
-#             except IntegrityError:
-#                 return Response(
-#                     {'error': 'An error occurred while creating your profile. Please try again.'},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-            
-#             if not created:
-#                 # Handle the case where the profile already exists (unlikely to occur in a clean signup)
-#                 return Response(
-#                     {'error': 'A profile for this user already exists. Please contact support if this is unexpected.'},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-
-#             # If there's a referral code, handle the referral logic
-#             if referral_code:
-#                 try:
-#                     referrer_profile = Profile.objects.get(username=referral_code)
-#                     if referrer_profile.user == user:
-#                         return Response(
-#                             {'error': 'You cannot use your own referral code.'},
-#                             status=status.HTTP_400_BAD_REQUEST
-#                         )
-
-#                     # Create the referral record
-#                     Referral.objects.create(profile=referrer_profile, username=user.username)
-
-#                     # Update referrer profile balances
-#                     referrer_profile.account_balance += 10.00  # Adjust bonus amount as needed
-#                     referrer_profile.referral_people += 1
-#                     referrer_profile.save()
-
-#                     # Create a notification for the referrer
-#                     Notification.objects.create(
-#                         profile=referrer_profile,
-#                         action=f"{user.username} registered using your referral link.",
-#                         action_title="New Referral",
-#                     )
-
-#                     # Send email notification to the referrer
-#                     send_mail(
-#                         'You have a new referral!',
-#                         f'{user.username} has registered using your referral link. You have earned a bonus.',
-#                         settings.DEFAULT_FROM_EMAIL,
-#                         [referrer_profile.user.email],
-#                         fail_silently=False,
-#                     )
-#                 except Profile.DoesNotExist:
-#                     # Handle the case where the referral code is invalid
-#                     return Response(
-#                         {'error': 'Invalid referral code. Please make sure you are using a valid referral link.'},
-#                         status=status.HTTP_400_BAD_REQUEST
-#                     )
-
-#             # Clear the session variable after successful registration
-#             if 'referral_code' in request.session:
-#                 del request.session['referral_code']
-
-#             # Generate and send OTP after user is saved
-#             self.create_and_send_otp(user)
-#             return Response({
-#                 'data': serializer.data,
-#                 'message': f'Welcome {user.first_name} to the platform. Check your mail for your passcode.'
-#             }, status=status.HTTP_201_CREATED)
-
-#         # Handle the case where the serializer is not valid
-#         logger.error(f"Serializer errors: {serializer.errors}")
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def create_and_send_otp(self, user):
-#         otp_obj, created = EmailVerificationTOTP.objects.get_or_create(user=user)
-#         if not created:
-#             otp_obj.secret = pyotp.random_base32()
-#         else:
-#             otp_obj.secret = pyotp.random_base32()
-#         otp_obj.save()
-
-#         send_verification_email(user, otp_obj.secret)
-
-
-# class RegisterUserView(APIView):
-#     serializer_class = UserRegisterSerializer
-
-#     @swagger_auto_schema(request_body=UserRegisterSerializer)
-#     @transaction.atomic
-#     def post(self, request):
-#         referral_code = request.data.get('referral_code', None)  # Get referral code from request data
-
-#         serializer = self.serializer_class(data=request.data)
-#         if serializer.is_valid():
-#             user = serializer.save()
-
-#             # Create the Profile for the new user
-#             try:
-#                 profile = Profile.objects.create(user=user, username=user.email)
-#             except IntegrityError as e:
-#                 logger.error(f"IntegrityError while creating profile for user ID {user.id}: {str(e)}")
-#                 return Response(
-#                     {'error': 'An error occurred while creating your profile. Please try again.'},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-
-#             # Handle referral logic if a referral code is provided
-#             if referral_code:
-#                 try:
-#                     # Check if the referrer profile exists
-#                     referrer_profile = Profile.objects.get(username=referral_code)
-#                     if referrer_profile.user == user:
-#                         return Response(
-#                             {'error': 'You cannot use your own referral code.'},
-#                             status=status.HTTP_400_BAD_REQUEST
-#                         )
-
-#                     # Set the referred_by field in the new user's profile
-#                     profile.referred_by = referrer_profile.username
-#                     profile.save()
-
-#                     # Create the referral record
-#                     Referral.objects.create(user=referrer_profile.user, username=referrer_profile.username)
-
-#                     # Update referrer profile balances and referral count
-#                     referrer_profile.account_balance += 10.00  # Adjust bonus amount as needed
-#                     referrer_profile.referral_people += 1
-#                     referrer_profile.save()
-
-#                     # Create a notification for the referrer
-#                     Notification.objects.create(
-#                         profile=referrer_profile,
-#                         action=f"{user.username} registered using your referral link.",
-#                         action_title="New Referral",
-#                     )
-
-#                     # Send email notification to the referrer
-#                     send_mail(
-#                         'You have a new referral!',
-#                         f'{user.username} has registered using your referral link. You have earned a bonus.',
-#                         settings.DEFAULT_FROM_EMAIL,
-#                         [referrer_profile.user.email],
-#                         fail_silently=False,
-#                     )
-
-#                 except Profile.DoesNotExist:
-#                     # Handle the case where the referral code is invalid
-#                     return Response(
-#                         {'error': 'Invalid referral code. Please make sure you are using a valid referral link.'},
-#                         status=status.HTTP_400_BAD_REQUEST
-#                     )
-
-#             # Generate and send OTP after user is saved
-#             self.create_and_send_otp(user)
-#             return Response({
-#                 'data': serializer.data,
-#                 'message': f'Welcome {user.first_name} to the platform. Check your mail for your passcode.'
-#             }, status=status.HTTP_201_CREATED)
-
-#         # Handle the case where the serializer is not valid
-#         logger.error(f"Serializer errors: {serializer.errors}")
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def create_and_send_otp(self, user):
-#         otp_obj, created = EmailVerificationTOTP.objects.get_or_create(user=user)
-#         if not created:
-#             otp_obj.secret = pyotp.random_base32()
-#         else:
-#             otp_obj.secret = pyotp.random_base32()
-#         otp_obj.save()
-
-#         send_verification_email(user, otp_obj.secret)
-
-# class RegisterUserView(APIView):
-#     serializer_class = UserRegisterSerializer
-
-#     @swagger_auto_schema(request_body=UserRegisterSerializer)
-#     @transaction.atomic
-#     def post(self, request):
-#         referral_code = request.data.get('referral_code', None)  # Get referral code from request data
-
-#         serializer = self.serializer_class(data=request.data)
-#         if serializer.is_valid():
-#             user = serializer.save()  # Create the user
-
-#             # Allow time for the profile creation via post_save signal
-#             try:
-#                 profile = Profile.objects.get(user=user)
-#             except Profile.DoesNotExist:
-#                 # If for some reason the Profile isn't created, return an error
-#                 return Response(
-#                     {'error': 'An error occurred while creating your profile. Please try again.'},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-
-#             # Handle referral logic if a referral code is provided
-#             if referral_code:
-#                 try:
-#                     # Check if the referrer profile exists
-#                     referrer_profile = Profile.objects.get(username=referral_code)
-#                     if referrer_profile.user == user:
-#                         return Response(
-#                             {'error': 'You cannot use your own referral code.'},
-#                             status=status.HTTP_400_BAD_REQUEST
-#                         )
-
-#                     # Set the referred_by field in the new user's profile
-#                     profile.referred_by = referrer_profile.username
-#                     profile.save()
-
-#                     # Create the referral record
-#                     Referral.objects.create(user=referrer_profile.user, username=user.username)
-
-#                     # Update referrer profile balances and referral count
-#                     referrer_profile.account_balance += 10.00  # Adjust bonus amount as needed
-#                     referrer_profile.referral_people += 1
-#                     referrer_profile.save()
-
-#                     # Create a notification for the referrer
-#                     Notification.objects.create(
-#                         profile=referrer_profile,
-#                         action=f"{user.username} registered using your referral link.",
-#                         action_title="New Referral",
-#                     )
-
-#                     # Send email notification to the referrer
-#                     send_mail(
-#                         'You have a new referral!',
-#                         f'{user.username} has registered using your referral link. You have earned a bonus.',
-#                         settings.DEFAULT_FROM_EMAIL,
-#                         [referrer_profile.user.email],
-#                         fail_silently=False,
-#                     )
-
-#                 except Profile.DoesNotExist:
-#                     # Handle the case where the referral code is invalid
-#                     return Response(
-#                         {'error': 'Invalid referral code. Please make sure you are using a valid referral link.'},
-#                         status=status.HTTP_400_BAD_REQUEST
-#                     )
-
-#             # Generate and send OTP after user is saved
-#             self.create_and_send_otp(user)
-#             return Response({
-#                 'data': serializer.data,
-#                 'message': f'Welcome {user.first_name} to the platform. Check your mail for your passcode.'
-#             }, status=status.HTTP_201_CREATED)
-
-#         # Handle the case where the serializer is not valid
-#         logger.error(f"Serializer errors: {serializer.errors}")
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def create_and_send_otp(self, user):
-#         otp_obj, created = EmailVerificationTOTP.objects.get_or_create(user=user)
-#         if not created:
-#             otp_obj.secret = pyotp.random_base32()
-#         else:
-#             otp_obj.secret = pyotp.random_base32()
-#         otp_obj.save()
-
-#         send_verification_email(user, otp_obj.secret)
-
 
 class RegisterUserView(APIView):
     serializer_class = UserRegisterSerializer
 
-    @swagger_auto_schema(request_body=UserRegisterSerializer)
     @transaction.atomic
     def post(self, request):
-        # referral_code = request.data.get('referral_code', None)  
         referral_code = request.query_params.get('referral_code', None)
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
+
             user = serializer.save()  # Create the user
 
             # Allow time for the profile creation via post_save signal
@@ -472,32 +165,40 @@ class RegisterUserView(APIView):
         send_verification_email(user, otp_obj.secret)
 
 
-class VerifyUserEmail(APIView):
-    @swagger_auto_schema(request_body=TOTPVerificationSerializer)
+
+class VerifyUserEmail(GenericAPIView): 
+    
+    @swagger_auto_schema(request_body=OTPSerializer)
     def post(self, request):
-        serializer = TOTPVerificationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        email = serializer.validated_data.get('email')
-        otp = serializer.validated_data.get('otp')
-        
+        otp_code = request.data.get('otp')
+        email = request.data.get('email')
+
+        if not otp_code or not email:
+            return Response({"message": "OTP and email are required."}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            user = User.objects.get(email=email)
-            verification_record = EmailVerificationTOTP.objects.get(user=user)
-            
-            totp = pyotp.TOTP(verification_record.secret)
-            
-            # Verify OTP
-            if totp.verify(otp):
-                with transaction.atomic():
-                    user.is_active = True
+            otp_obj = OneTimePassword.objects.get(email=email)
+
+            if otp_obj.is_expired():
+                otp_obj.delete()
+                return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+            hashed_otp_code = hash_otp(otp_code)
+            if otp_obj.code == hashed_otp_code:
+                user = User.objects.get(email=email)
+                if not user.is_verified:
+                    user.is_verified = True
                     user.save()
-                    verification_record.delete()
-                return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
+                    return Response({"message": "Account email verified successfully"}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"message": "User is already verified"}, status=status.HTTP_204_NO_CONTENT)
             else:
-                return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
-        except (User.DoesNotExist, EmailVerificationTOTP.DoesNotExist):
-            return Response({'error': 'Invalid email or OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"message": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+        except OneTimePassword.DoesNotExist:
+            return Response({"message": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            return Response({"message": "User not found."}, status=status.HTTP_400_BAD_REQUEST)
         
 class ResendCodeView(APIView):
     def post(self, request):
@@ -508,18 +209,20 @@ class ResendCodeView(APIView):
 
         try:
             user = User.objects.get(email=email)
-            otp_obj, created = EmailVerificationTOTP.objects.get_or_create(user=user)
-            
-            # Update secret if OTP already exists
-            if not created:
-                otp_obj.secret = pyotp.random_base32()
-                otp_obj.save()
-            
-            # Send new OTP code
-            send_verification_email(user, otp_obj.secret)
+            existing_otp = OneTimePassword.objects.filter(email=email).first()
+            if existing_otp:
+                if existing_otp.is_expired():
+                    existing_otp.delete()
+                    send_code_to_user(email)  
+                    return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"error": "OTP previously sent is still valid"}, status=status.HTTP_400_BAD_REQUEST)
+
+        except OneTimePassword.DoesNotExist:
+            send_code_to_user(email) 
             return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            return Response({"error": "User with this email does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": "Failed to send new OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):

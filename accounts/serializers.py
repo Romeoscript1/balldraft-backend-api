@@ -1,7 +1,6 @@
 from datetime import timedelta, datetime
 from rest_framework import serializers
-from .models import User, EmailVerificationTOTP, Referral
-
+from .models import User, OneTimePassword, Referral
 from rest_framework.exceptions import AuthenticationFailed
 
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -42,9 +41,20 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         return User.objects.create_user(**validated_data)
 
 
-class TOTPVerificationSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    otp = serializers.CharField(max_length=6, min_length=6)
+class OTPSerializer(serializers.ModelSerializer):
+    code = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = OneTimePassword
+        fields = ['email', 'code']
+
+    def validate_code(self, value):
+        """
+        Optional: Validate that the OTP code is the correct length and format.
+        """
+        if not value.isdigit() or len(value) != 6:
+            raise serializers.ValidationError({"error":"Invalid OTP format."})
+        return value
 
         
 class PasswordResetRequestSerializer(serializers.Serializer):
@@ -167,23 +177,6 @@ class DDConfirmActionAccountSerializer(serializers.Serializer):
             if not user.check_password(value):
                 raise serializers.ValidationError({"error": "Incorrect password"})
         return value
-
-# class DeleteAccountSerializer(serializers.Serializer):
-#     reason = serializers.CharField(choices=REASON_CHOICES, max_length=500, required=False)
-#     comment = serializers.CharField(max_length=3000, required=False)
-#     password = serializers.CharField(required=True)
-#     # confirmation = serializers.BooleanField()
-
-#     # def validate_confirmation(self, value):
-#     #     if not value:
-#     #         raise serializers.ValidationError("Confirmation is required")
-#     #     return value
-    
-#     def validate_password(self, value):
-#         user = self.context['request'].user
-#         if not user.check_password(value):
-#             raise serializers.ValidationError("Incorrect password")
-#         return value
 
 
 
