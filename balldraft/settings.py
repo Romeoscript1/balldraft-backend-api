@@ -208,19 +208,19 @@ PAYMENT_TRANSACTION_CALLBACK_URL = env("PAYMENT_TRANSACTION_CALLBACK_URL")
 # ## Development purposes
 
 CELERY_BEAT_SCHEDULE = {
-#    'update-contest-history-live-and-completed': {
-#        'task': 'contests.tasks.update_contest_history',
-#        'schedule': timedelta(seconds=10),  
-#    },
-#     'algorithms_for_distribution_for_positions': {
-#        'task': 'contests.tasks.algorithms_for_distribution_position',
-#        'schedule': timedelta(seconds=20),  
-#     },
+   'update-contest-history-live-and-completed': {
+       'task': 'contests.tasks.update_contest_history',
+       'schedule': timedelta(seconds=10),  
+   },
+    'algorithms_for_distribution_for_positions': {
+       'task': 'contests.tasks.algorithms_for_distribution_position',
+       'schedule': timedelta(seconds=20),  
+    },
 
-#      'distribute_profits_to_contests': {
-#        'task': 'contests.tasks.distribute_profits_to_contests',
-#        'schedule': timedelta(seconds=30),  
-#     },
+     'distribute_profits_to_contests': {
+       'task': 'contests.tasks.distribute_profits_to_contests',
+       'schedule': timedelta(seconds=30),  
+    },
 
     'verify-pending-payments-every-5-seconds': {
         'task': 'profiles.tasks.verify_pending_payments', 

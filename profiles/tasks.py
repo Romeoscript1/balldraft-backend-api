@@ -4,6 +4,29 @@ from django.conf import settings
 from paystackapi.transaction import Transaction
 from .models import Payment, TransactionHistory
 
+from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from random import shuffle
+import logging
+
+def send_email(subject, body, recipient):
+    context = {
+        "subject": subject,
+        "body": body,
+    }
+    html_content = render_to_string("emails.html", context)
+    text_content = strip_tags(html_content)
+    email = EmailMultiAlternatives(
+        subject,
+        text_content,
+        settings.EMAIL_HOST_USER,
+        [recipient]
+    )
+    email.attach_alternative(html_content, 'text/html')
+    email.send()
+
 logger = logging.getLogger(__name__)
 
 @shared_task
@@ -22,6 +45,16 @@ def verify_pending_payments():
             payment.status = 'success'
             payment.profile.account_balance += float(payment.ngn_amount)
             payment.profile.save()
+
+            email_subject = "Balldraft | Account Funding Successful"
+            email_message = f"Your Deposit of {ngn_amount} Is Successful, The Funds have arrived in your balance"
+            recipient_list = request.user.email  
+            
+            send_email(
+                        subject,
+                        message,
+                        recipient_list
+                    )
 
             # Log the transaction history for successful payment
             TransactionHistory.objects.create(

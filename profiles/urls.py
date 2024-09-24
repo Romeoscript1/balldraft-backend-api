@@ -9,8 +9,16 @@ urlpatterns=[
     path('notifications/<int:pk>/read/', mark_as_read, name='notification-mark-as-read'),
     path('notifications/<int:pk>/delete/', delete_notification, name='notification-delete'),
     path('payments/create/', PaymentCreateView.as_view(), name='payment-create'),
-    path('payments/verify/', PaymentVerifyView.as_view(), name='payment-verify'),
-        path('withdrawals/verify/<str:reference>/', WithdrawVerifyView.as_view(), name='withdrawal-verify'),
+    # path('payments/verify/', PaymentVerifyView.as_view(), name='payment-verify'),
+
+    path('deposits-history/', DepositListView.as_view(), name='deposit-list'),
+    path('deposits-history/<int:id>/', DepositDetailView.as_view(), name='deposit-detail'),
+
+    path('withdrawals-history/', WithdrawListView.as_view(), name='withdraw-list'),
+    path('withdrawals-history/<int:id>/', WithdrawDetailView.as_view(), name='withdraw-detail'),
+
+
+    path('withdrawals/verify/<str:reference>/', WithdrawVerifyView.as_view(), name='withdrawal-verify'),
     path('withdrawals/create/', WithdrawCreateView.as_view(), name='withdrawal-create'),
     path('transactions/', TransactionHistoryListView.as_view(), name='transaction-history-list'),
     path('transactions/<int:id>/', TransactionHistoryDetailView.as_view(), name='transaction-history-detail'),
