@@ -59,6 +59,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_otp.middleware.OTPMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'accounts.middleware.ReferralMiddleware'
 ]
 
 ROOT_URLCONF = 'balldraft.urls'
@@ -189,9 +190,10 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-#EMAIL_USE_SSL = True
-#EMAIL_PORT = 465
+# EMAIL_USE_SSL = True
+# EMAIL_PORT = 465
 EMAIL_HOST_USER = env("EMAIL_HOST_USER") 
+SUPPORT_EMAIL = "benjaminparish6@gmail.com"
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")  
 
 

@@ -7,12 +7,14 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 # from contests.models import Contest
 import pyotp
+from .models import *
 
 
 AUTH_PROVIDERS={
     'email':'email',
     'google':'google'
 }
+
 
 
 
@@ -70,3 +72,13 @@ class ReasonToLeave(models.Model):
     class Meta:
         verbose_name = "Reason to Leave"
         verbose_name_plural = "Reasons to Leave"
+
+
+class Referral(models.Model):
+    user = models.ForeignKey(User, related_name="referrals", on_delete=models.CASCADE)
+    username = models.CharField(max_length=50)
+    date_joined = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.user.email} referred {self.username}'
+

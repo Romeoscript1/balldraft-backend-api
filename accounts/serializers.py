@@ -1,6 +1,6 @@
 from datetime import timedelta, datetime
 from rest_framework import serializers
-from .models import User, EmailVerificationTOTP
+from .models import User, EmailVerificationTOTP, Referral
 
 from rest_framework.exceptions import AuthenticationFailed
 
@@ -184,3 +184,10 @@ class DDConfirmActionAccountSerializer(serializers.Serializer):
 #         if not user.check_password(value):
 #             raise serializers.ValidationError("Incorrect password")
 #         return value
+
+
+
+class ReferralSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Referral
+        fields = ['username', 'date_joined']

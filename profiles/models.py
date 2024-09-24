@@ -51,6 +51,9 @@ class GenerateProfileImagePath(object):
 
 user_profile_image_path = GenerateProfileImagePath()
 
+# In your Profile model
+from django.db.models import Sum
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     username = models.CharField(max_length=101, unique=True, blank=True, null=True, verbose_name=_("User Name"))
@@ -67,8 +70,14 @@ class Profile(models.Model):
     state = models.TextField(max_length=335, blank=True, null=True)
     city = models.TextField(max_length=335, blank=True, null=True)
     zip_code = models.CharField(max_length=15, blank=True, null=True)
-    
     image = models.FileField(upload_to=user_profile_image_path, blank=True, null=True)
+
+    @property
+    def total_points(self):
+        from contests.models import ContestHistory  
+
+        total = ContestHistory.objects.filter(profile=self).aggregate(total_points=Sum('total_points'))['total_points']
+        return total if total is not None else 0.0
 
     @property
     def full_name(self):
@@ -87,13 +96,13 @@ class Profile(models.Model):
 
 
 
-class Referral(models.Model):
-    profile = models.ForeignKey(Profile, related_name="referrals", on_delete=models.CASCADE)
-    username = models.CharField(max_length=50)
-    date_joined = models.DateTimeField(auto_now_add=True)
+# class Referral(models.Model):
+#     profile = models.ForeignKey(Profile, related_name="referrals", on_delete=models.CASCADE)
+#     username = models.CharField(max_length=50)
+#     date_joined = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f'{self.profile.username} referred {self.username}'
+#     def __str__(self):
+#         return f'{self.profile.username} referred {self.username}'
 
 
 class Notification(models.Model):
@@ -226,7 +235,7 @@ class Payment(models.Model):
             Deposit.objects.create(
                     profile=self.profile,
                     ngn_amount = self.ngn_amount,
-                    verified = False
+                    verified = True
                 )
         return super().save(*args, **kwargs)
     

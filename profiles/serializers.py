@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from profiles.models import Profile, Notification, Referral,Payment, Withdraw
+from profiles.models import Profile, Notification,Payment, Withdraw
 
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -26,32 +26,32 @@ class NotificationSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'profile', 'time']
         
 
-class ReferralSerializer(serializers.ModelSerializer):
-    referred_by = serializers.CharField(write_only=True)
+# class ReferralSerializer(serializers.ModelSerializer):
+#     referred_by = serializers.CharField(write_only=True)
 
-    class Meta:
-        model = Referral
-        fields = ['id', 'profile','date_joined', 'referred_by']
-        read_only_fields = ['id', 'profile', 'date_joined']
+#     class Meta:
+#         model = Referral
+#         fields = ['id', 'profile','date_joined', 'referred_by']
+#         read_only_fields = ['id', 'profile', 'date_joined']
 
-    def create(self, validated_data):
-        referred_by_username = validated_data.pop('referred_by')
-        request = self.context.get('request')
-        try:
-            referrer_profile = Profile.objects.get(username=referred_by_username)
-        except Profile.DoesNotExist:
-            raise serializers.ValidationError({'referred_by': 'Profile with this username does not exist.'})
+#     def create(self, validated_data):
+#         referred_by_username = validated_data.pop('referred_by')
+#         request = self.context.get('request')
+#         try:
+#             referrer_profile = Profile.objects.get(username=referred_by_username)
+#         except Profile.DoesNotExist:
+#             raise serializers.ValidationError({'referred_by': 'Profile with this username does not exist.'})
         
-        # Create the referral instance
-        referred_profile = Profile.objects.get(user=request.user)
-        referral = Referral.objects.create(profile=referrer_profile, username=referred_profile, 
-                                           date_joined=validated_data.get('date_joined'))
+#         # Create the referral instance
+#         referred_profile = Profile.objects.get(user=request.user)
+#         referral = Referral.objects.create(profile=referrer_profile, username=referred_profile, 
+#                                            date_joined=validated_data.get('date_joined'))
 
-        # Update referrer profile's referral_people count
-        referrer_profile.referral_people += 1
-        referrer_profile.save()
+#         # Update referrer profile's referral_people count
+#         referrer_profile.referral_people += 1
+#         referrer_profile.save()
         
-        return referral
+#         return referral
 
     
     
@@ -74,3 +74,19 @@ class WithdrawSerializer(serializers.ModelSerializer):
             'ngn_amount', 'verified', 'comment', 'reference'
         ]
         read_only_fields = ['id', 'profile', 'time', 'verified']
+
+
+
+
+class UserActivitySerializer(serializers.Serializer):
+    last_login = serializers.DateTimeField()
+    recent_deposit_time = serializers.CharField()
+    recent_deposit_amount = serializers.CharField()
+    total_points = serializers.FloatField()
+
+
+class HelpSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100, required=True)
+    email = serializers.EmailField(required=True)
+    subject = serializers.CharField(max_length=150, required=True)
+    message = serializers.CharField(required=True, max_length=2000)

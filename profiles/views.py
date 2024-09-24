@@ -8,7 +8,7 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser
 from accounts.views import VerifyUserEmail
 from profiles.serializers import (
-                                ProfileSerializer, EmailChangeSerializer, WithdrawSerializer, ReferralSerializer,NotificationSerializer, PaymentSerializer, PaymentVerifySerializer)
+                                ProfileSerializer, EmailChangeSerializer,HelpSerializer,  WithdrawSerializer,NotificationSerializer, PaymentSerializer, PaymentVerifySerializer, UserActivitySerializer)
 from profiles.models import *
 from paystackapi.paystack import Paystack
 from paystackapi.transaction import Transaction
@@ -50,7 +50,76 @@ def send_email(subject,body,recipient):
     email.send()
 
 
+class UserActivityView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        profile = request.user.profile
+
+        # Get the last login time
+        last_login = request.user.last_login
+        
+
+        # Get the most recent deposit made by the user, if any
+        recent_deposit = Deposit.objects.filter(profile=profile, verified=True).order_by('-time').first()
+
+        if recent_deposit:
+            # Ensure that recent_deposit.time is treated as a datetime object
+            if isinstance(recent_deposit.time, (str, bytes)):
+                recent_deposit_time = "Invalid date format"
+            else:
+                recent_deposit_time = recent_deposit.time.strftime('%B %d, %Y')  # Convert datetime to "January 4, 2023" format
+            recent_deposit_amount = str(recent_deposit.ngn_amount)  # Convert Decimal to string
+        else:
+            recent_deposit_time = "No recent deposit made"
+            recent_deposit_amount = "No recent deposit made"
+
+        # Get the total points from the Profile model
+        total_points = profile.total_points
+
+        # Prepare the data for the response
+        data = {
+            "last_login": last_login,
+            "recent_deposit_time": recent_deposit_time,
+            "recent_deposit_amount": recent_deposit_amount,
+            "total_points": total_points,
+        }
+
+        # Serialize the data
+        serializer = UserActivitySerializer(data=data)
+        if serializer.is_valid():
+            return Response(serializer.data, status=200)
+        return Response(serializer.errors, status=400)
+
+
+class HelpmeView(APIView):
+
+    @swagger_auto_schema(request_body=HelpSerializer)
+    def post(self, request, *args, **kwargs):
+        serializer = HelpSerializer(data=request.data)
+        if serializer.is_valid():
+            name = serializer.validated_data['name']
+            email = serializer.validated_data['email']
+            subject = serializer.validated_data['subject']
+            message = serializer.validated_data['message']
+
+            # Prepare email content
+            email_subject = f"Support Request from {name}: {subject}"
+            email_message = f"Message from {name} ({email}):\n\n{message}"
+            recipient_list = settings.SUPPORT_EMAIL  
+            
+            # Send email
+            try:
+                send_email(
+                    subject,
+                    message,
+                    recipient_list
+                )
+                return Response({'message': 'Your message has been sent successfully!'}, status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({'error': str(e), 'message': 'Failed to send the message. Please try again later.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 paystack = Paystack(secret_key=settings.PAYSTACK_SECRET_KEY)
@@ -325,39 +394,41 @@ class EmailChangeView(UpdateAPIView):
         return self.update(request, *args, **kwargs)
     
     
-class ReferralListView(generics.ListAPIView):
-    serializer_class = ReferralSerializer
-    permission_classes = [IsAuthenticated]
+# class ReferralListView(generics.ListAPIView):
+#     serializer_class = ReferralSerializer
+#     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        return Referral.objects.filter(profile=self.request.user.profile)
+#     def get_queryset(self):
+#         return Referral.objects.filter(profile=self.request.user.profile)
     
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        if not queryset.exists():
-            return Response({"message": "No referrals "}, status=200)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+#     def list(self, request, *args, **kwargs):
+#         queryset = self.get_queryset()
+#         if not queryset.exists():
+#             return Response({"message": "No referrals "}, status=200)
+#         serializer = self.get_serializer(queryset, many=True)
+#         return Response(serializer.data)
 
-class ReferralCreateView(generics.CreateAPIView):
-    serializer_class = ReferralSerializer
-    permission_classes = [AllowAny]
+# class ReferralCreateView(generics.CreateAPIView):
+#     serializer_class = ReferralSerializer
+#     permission_classes = [AllowAny]
 
-    @swagger_auto_schema(request_body=ReferralSerializer)
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+#     @swagger_auto_schema(request_body=ReferralSerializer)
+#     def create(self, request, *args, **kwargs):
+#         serializer = self.get_serializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         self.perform_create(serializer)
+#         headers = self.get_success_headers(serializer.data)
+#         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    def perform_create(self, serializer):
-        serializer.save()
+#     def perform_create(self, serializer):
+#         serializer.save()
 
-class ReferralDetailView(generics.RetrieveAPIView):
-    serializer_class = ReferralSerializer
-    permission_classes = [IsAuthenticated]
-    lookup_field = 'pk'
+# class ReferralDetailView(generics.RetrieveAPIView):
+#     serializer_class = ReferralSerializer
+#     permission_classes = [IsAuthenticated]
+#     lookup_field = 'pk'
 
-    def get_queryset(self):
-        return Referral.objects.filter(profile=self.request.user.profile) 
+#     def get_queryset(self):
+#         return Referral.objects.filter(profile=self.request.user.profile) 
+
+

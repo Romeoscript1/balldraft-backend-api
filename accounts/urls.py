@@ -14,12 +14,15 @@ from .views import (RegisterUserView,
                     
                     Enable2FAView,
                     Verify2FATokenView,
+                    ReferralListView,
                     Disable2FAView)
 
 
 
 urlpatterns=[
+    # path('register/', RegisterUserView.as_view(), name='register'),
     path('register/', RegisterUserView.as_view(), name='register'),
+    path('referrals/', ReferralListView.as_view(), name='referral-list'),
     path('verify-email/', VerifyUserEmail.as_view(), name='verify-email'),
     path('resend-code/', ResendCodeView.as_view(), name='resend_code'),
     path('login/', login_view, name='login'),
