@@ -143,26 +143,21 @@ class RegisterUserView(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-            # Generate and send OTP after user is saved
-            self.create_and_send_otp(user)
-            return Response({
-                'data': serializer.data,
-                'message': f'Welcome {user.first_name} to the platform. Check your mail for your passcode.'
-            }, status=status.HTTP_201_CREATED)
-
+            try:
+                # Generate and send OTP after user is saved
+                send_code_to_user(user)
+                logger.info(f"User {user.email} registered successfully. OTP sent.")
+                return Response({
+                    'data': serializer.data,
+                    'message': f'Welcome {user.first_name} to the platform. Check your mail for your passcode.'
+                }, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                logger.error(f"Error sending OTP to {user.email}: {str(e)}")
+                return Response({"message": "Registration successful but failed to send OTP."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
         # Handle the case where the serializer is not valid
-        logger.error(f"Serializer errors: {serializer.errors}")
+        logger.error(f"Registration failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def create_and_send_otp(self, user):
-        otp_obj, created = EmailVerificationTOTP.objects.get_or_create(user=user)
-        if not created:
-            otp_obj.secret = pyotp.random_base32()
-        else:
-            otp_obj.secret = pyotp.random_base32()
-        otp_obj.save()
-
-        send_verification_email(user, otp_obj.secret)
 
 
 
