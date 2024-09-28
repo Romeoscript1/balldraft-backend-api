@@ -56,6 +56,13 @@ class OTPSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"error":"Invalid OTP format."})
         return value
 
+
+class ResendcodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OneTimePassword
+        fields = ['email']
+
+ 
         
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField(max_length=255, min_length=6)

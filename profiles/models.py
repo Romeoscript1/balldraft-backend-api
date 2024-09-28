@@ -230,13 +230,7 @@ class Payment(models.Model):
     def __str__(self):
         return f'Payment {self.reference} - {self.status}'
     
-    def save(self, *args, **kwargs):
-        if self.status == "success":
-            Deposit.objects.create(
-                    profile=self.profile,
-                    ngn_amount = self.ngn_amount,
-                    verified = True
-                )
+    def save(self, *args, **kwargs):           
         return super().save(*args, **kwargs)
     
 

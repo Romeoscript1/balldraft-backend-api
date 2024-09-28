@@ -71,6 +71,18 @@ class ReasonToLeave(models.Model):
         verbose_name = "Reason to Leave"
         verbose_name_plural = "Reasons to Leave"
 
+class EmailVerificationTOTP(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    secret = models.CharField(max_length=16, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.secret}"
+    
+    def generate_otp(self):
+        # Create a TOTP instance with a 1200-second interval
+        totp = pyotp.TOTP(self.secret, interval=1200)
+        return totp.now()
 
 class Referral(models.Model):
     user = models.ForeignKey(User, related_name="referrals", on_delete=models.CASCADE)

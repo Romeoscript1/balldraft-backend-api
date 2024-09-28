@@ -2,7 +2,7 @@ import logging
 from celery import shared_task
 from django.conf import settings
 from paystackapi.transaction import Transaction
-from .models import Payment, TransactionHistory
+from .models import Payment, TransactionHistory, Deposit
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -47,8 +47,8 @@ def verify_pending_payments():
             payment.profile.save()
 
             subject = "Balldraft | Account Funding Successful"
-            message = f"Your Deposit of {ngn_amount} Is Successful, The Funds have arrived in your balance"
-            recipient_list = request.user.email  
+            message = f"Your Deposit of {payment.ngn_amount} Is Successful, The Funds have arrived in your balance"
+            recipient_list = payment.profile.email  
             
             send_email(
                         subject,
@@ -63,6 +63,13 @@ def verify_pending_payments():
                 action_title="Deposit Successful!",
                 category="Deposit"
             )
+
+            Deposit.objects.create(
+                    profile=payment.profile,
+                    ngn_amount = payment.ngn_amount,
+                    verified = True
+                )
+
             logger.info(f"Payment {payment.reference} verified successfully")
         else:
             payment.status = 'failed'

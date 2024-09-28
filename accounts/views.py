@@ -1,10 +1,11 @@
+import pyotp
 from rest_framework.generics import GenericAPIView, RetrieveUpdateAPIView, UpdateAPIView
 from .serializers import (
     UserRegisterSerializer, 
     PasswordResetRequestSerializer, 
     SetNewPasswordSerializer,
     LogoutUserSerializer,
-    DDConfirmActionAccountSerializer, OTPSerializer,ReferralSerializer)
+    DDConfirmActionAccountSerializer,ResendcodeSerializer, OTPSerializer,ReferralSerializer)
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db import IntegrityError
@@ -16,14 +17,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from django.shortcuts import redirect
 
-from .utils import send_code_to_user, hash_otp, generate_otp
-from .models import OneTimePassword, User, ReasonToLeave, Referral
+from .utils import *
+from .models import OneTimePassword, User, ReasonToLeave, Referral, EmailVerificationTOTP
 
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.urls import reverse
-
 from .models import Referral
 from django.core.mail import send_mail
 
@@ -77,6 +77,7 @@ class ReferralListView(generics.ListAPIView):
 class RegisterUserView(APIView):
     serializer_class = UserRegisterSerializer
 
+    @swagger_auto_schema(request_body=UserRegisterSerializer)
     @transaction.atomic
     def post(self, request):
         referral_code = request.query_params.get('referral_code', None)
@@ -166,11 +167,44 @@ class RegisterUserView(APIView):
 
 
 
-class VerifyUserEmail(GenericAPIView): 
+# class VerifyUserEmail(GenericAPIView): 
     
+#     @swagger_auto_schema(request_body=OTPSerializer)
+#     def post(self, request):
+#         otp_code = request.data.get('code')
+#         email = request.data.get('email')
+
+#         if not otp_code or not email:
+#             return Response({"message": "OTP and email are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             otp_obj = OneTimePassword.objects.get(email=email)
+
+#             if otp_obj.is_expired():
+#                 otp_obj.delete()
+#                 return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+#             hashed_otp_code = hash_otp(otp_code)
+#             if otp_obj.code == hashed_otp_code:
+#                 user = User.objects.get(email=email)
+#                 if not user.is_verified:
+#                     user.is_verified = True
+#                     user.save()
+#                     return Response({"message": "Account email verified successfully"}, status=status.HTTP_200_OK)
+#                 else:
+#                     return Response({"message": "User is already verified"}, status=status.HTTP_204_NO_CONTENT)
+#             else:
+#                 return Response({"message": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         except OneTimePassword.DoesNotExist:
+#             return Response({"message": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
+#         except User.DoesNotExist:
+#             return Response({"message": "User not found."}, status=status.HTTP_400_BAD_REQUEST)
+
+class VerifyUserEmail(GenericAPIView):
     @swagger_auto_schema(request_body=OTPSerializer)
     def post(self, request):
-        otp_code = request.data.get('otp')
+        otp_code = request.data.get('code')
         email = request.data.get('email')
 
         if not otp_code or not email:
@@ -178,14 +212,16 @@ class VerifyUserEmail(GenericAPIView):
 
         try:
             otp_obj = OneTimePassword.objects.get(email=email)
-
+            
             if otp_obj.is_expired():
                 otp_obj.delete()
                 return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
 
             hashed_otp_code = hash_otp(otp_code)
+            
             if otp_obj.code == hashed_otp_code:
                 user = User.objects.get(email=email)
+                
                 if not user.is_verified:
                     user.is_verified = True
                     user.save()
@@ -199,8 +235,35 @@ class VerifyUserEmail(GenericAPIView):
             return Response({"message": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
         except User.DoesNotExist:
             return Response({"message": "User not found."}, status=status.HTTP_400_BAD_REQUEST)
-        
+
+
+# class ResendCodeView(APIView):
+#     @swagger_auto_schema(request_body=ResendcodeSerializer)
+#     def post(self, request):
+#         email = request.data.get('email')
+
+#         if not email:
+#             return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             user = User.objects.get(email=email)
+#             existing_otp = OneTimePassword.objects.filter(email=email).first()
+#             if existing_otp:
+#                 if existing_otp.is_expired():
+#                     existing_otp.delete()
+#                     send_code_to_user(email)  
+#                     return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
+#                 else:
+#                     return Response({"error": "OTP previously sent is still valid"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         except OneTimePassword.DoesNotExist:
+#             send_code_to_user(email) 
+#             return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
+#         except Exception as e:
+#             return Response({"error": "Failed to send new OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class ResendCodeView(APIView):
+    @swagger_auto_schema(request_body=ResendcodeSerializer)
     def post(self, request):
         email = request.data.get('email')
 
@@ -209,7 +272,12 @@ class ResendCodeView(APIView):
 
         try:
             user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "User with this email does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
             existing_otp = OneTimePassword.objects.filter(email=email).first()
+
             if existing_otp:
                 if existing_otp.is_expired():
                     existing_otp.delete()
@@ -217,12 +285,12 @@ class ResendCodeView(APIView):
                     return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
                 else:
                     return Response({"error": "OTP previously sent is still valid"}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                send_code_to_user(email)  
+                return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
 
-        except OneTimePassword.DoesNotExist:
-            send_code_to_user(email) 
-            return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({"error": "Failed to send new OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": f"Failed to send new OTP: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
