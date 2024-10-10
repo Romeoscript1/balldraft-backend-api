@@ -147,7 +147,6 @@ class LogoutUserSerializer(serializers.Serializer):
             past_time = datetime.now() - timedelta(days=1)  # Set to expire 1 day ago
             access_token_obj = AccessToken(access_token)
             access_token_obj.set_exp(past_time)
-            access_token_obj.save()
 
         except TokenError as e:
             raise AuthenticationFailed(str(e))
