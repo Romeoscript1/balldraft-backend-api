@@ -1,3 +1,4 @@
+from django.conf import settings
 from datetime import timedelta, datetime
 from rest_framework import serializers
 from .models import User, OneTimePassword, Referral
@@ -69,14 +70,13 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         email = attrs.get('email')
-        if User.objects.filter(email=email).exists():
-            user = User.objects.get(email=email)
+        # Check if the email exists in the database
+        user = User.objects.filter(email=email).first()
+        if user:
             uidb64 = urlsafe_base64_encode(force_bytes(user.id))
             token = PasswordResetTokenGenerator().make_token(user)
-            request = self.context.get('request')
-            site_domain = get_current_site(request).domain
-            relative_link = f"/api/v1/auth/password-reset-confirm/{uidb64}/{token}/"
-            abslink = f"http://{site_domain}{relative_link}"
+            FRONTEND_SET_NEW_PASSWORD_URL = settings.FRONTEND_SET_NEW_PASSWORD_URL
+            abslink = f"{FRONTEND_SET_NEW_PASSWORD_URL}?uidb64={uidb64}&token={token}"
             email_body = f"Hey, Reset your password using this link \n {abslink}"
             data = {
                 'email_body': email_body,
@@ -84,40 +84,45 @@ class PasswordResetRequestSerializer(serializers.Serializer):
                 'to_email': user.email
             }
             send_reset_password_email(data)
-        else:
-            raise serializers.ValidationError({"error": "user with this Email Address does not exist."})
+
+        # Always return the same response whether or not the email exists
         return super().validate(attrs)
+
 
 class SetNewPasswordSerializer(serializers.Serializer):
     password = serializers.CharField(max_length=68, min_length=8, write_only=True)
-    confirm_password = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    confirm_password = serializers.CharField(max_length=68, min_length=8, write_only=True)
     uidb64 = serializers.CharField(write_only=True)
     token = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
         password = attrs.get('password')
         confirm_password = attrs.get('confirm_password')
+
+        # Check if passwords match
+        if password != confirm_password:
+            raise serializers.ValidationError({"error": "Passwords do not match."})
+
         uidb64 = attrs.get('uidb64')
         token = attrs.get('token')
-        
-        if password != confirm_password:
-            raise serializers.ValidationError({"error":"Passwords do not match"})
 
+        # Validate the token and user existence
         try:
             user_id = force_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(id=user_id)
             if not PasswordResetTokenGenerator().check_token(user, token):
-                raise AuthenticationFailed({"error": "Reset link is invalid or has expired"})
+                raise AuthenticationFailed({"error": "Reset link is invalid or has expired."})
             return attrs
         except (TypeError, ValueError, DjangoUnicodeDecodeError, User.DoesNotExist):
-            raise AuthenticationFailed({"error": "Reset link is invalid or has expired"})
+            raise AuthenticationFailed({"error": "Reset link is invalid or has expired."})
 
     def save(self):
+        # Save the new password for the user
         password = self.validated_data['password']
         user_id = force_str(urlsafe_base64_decode(self.validated_data['uidb64']))
         user = User.objects.get(id=user_id)
-        user.set_password(password)
-        user.save()
+        user.set_password(password)  # Hash the password
+        user.save()  # Save the user instance
         return user
         
 class LogoutUserSerializer(serializers.Serializer):

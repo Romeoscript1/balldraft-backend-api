@@ -1,3 +1,4 @@
+from django.http import HttpResponseRedirect
 import pyotp
 from rest_framework.generics import GenericAPIView, RetrieveUpdateAPIView, UpdateAPIView
 from .serializers import (
@@ -15,10 +16,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
-from django.shortcuts import redirect
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 
 from .utils import *
-from .models import OneTimePassword, User, ReasonToLeave, Referral, EmailVerificationTOTP
+from .models import OneTimePassword, User, ReasonToLeave, Referral
+# ,EmailVerificationTOTP
+
+from rest_framework.exceptions import ValidationError
 
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -86,6 +91,11 @@ class RegisterUserView(APIView):
 
             user = serializer.save()  # Create the user
 
+            # Generate and send OTP after user is saved
+            user_email = user.email 
+            logger.debug(f"user email from registratioin {user_email}")
+            send_code_to_user(user_email)
+
             # Allow time for the profile creation via post_save signal
             try:
                 profile = Profile.objects.get(user=user)
@@ -144,8 +154,6 @@ class RegisterUserView(APIView):
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-            # Generate and send OTP after user is saved
-            self.create_and_send_otp(user)
             return Response({
                 'data': serializer.data,
                 'message': f'Welcome {user.first_name} to the platform. Check your mail for your passcode.'
@@ -154,52 +162,6 @@ class RegisterUserView(APIView):
         # Handle the case where the serializer is not valid
         logger.error(f"Serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def create_and_send_otp(self, user):
-        otp_obj, created = EmailVerificationTOTP.objects.get_or_create(user=user)
-        if not created:
-            otp_obj.secret = pyotp.random_base32()
-        else:
-            otp_obj.secret = pyotp.random_base32()
-        otp_obj.save()
-
-        send_verification_email(user, otp_obj.secret)
-
-
-
-# class VerifyUserEmail(GenericAPIView): 
-    
-#     @swagger_auto_schema(request_body=OTPSerializer)
-#     def post(self, request):
-#         otp_code = request.data.get('code')
-#         email = request.data.get('email')
-
-#         if not otp_code or not email:
-#             return Response({"message": "OTP and email are required."}, status=status.HTTP_400_BAD_REQUEST)
-
-#         try:
-#             otp_obj = OneTimePassword.objects.get(email=email)
-
-#             if otp_obj.is_expired():
-#                 otp_obj.delete()
-#                 return Response({"message": "OTP has expired. You can request another OTP."}, status=status.HTTP_400_BAD_REQUEST)
-
-#             hashed_otp_code = hash_otp(otp_code)
-#             if otp_obj.code == hashed_otp_code:
-#                 user = User.objects.get(email=email)
-#                 if not user.is_verified:
-#                     user.is_verified = True
-#                     user.save()
-#                     return Response({"message": "Account email verified successfully"}, status=status.HTTP_200_OK)
-#                 else:
-#                     return Response({"message": "User is already verified"}, status=status.HTTP_204_NO_CONTENT)
-#             else:
-#                 return Response({"message": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
-
-#         except OneTimePassword.DoesNotExist:
-#             return Response({"message": "Invalid or expired OTP."}, status=status.HTTP_400_BAD_REQUEST)
-#         except User.DoesNotExist:
-#             return Response({"message": "User not found."}, status=status.HTTP_400_BAD_REQUEST)
 
 class VerifyUserEmail(GenericAPIView):
     @swagger_auto_schema(request_body=OTPSerializer)
@@ -237,31 +199,6 @@ class VerifyUserEmail(GenericAPIView):
             return Response({"message": "User not found."}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# class ResendCodeView(APIView):
-#     @swagger_auto_schema(request_body=ResendcodeSerializer)
-#     def post(self, request):
-#         email = request.data.get('email')
-
-#         if not email:
-#             return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-#         try:
-#             user = User.objects.get(email=email)
-#             existing_otp = OneTimePassword.objects.filter(email=email).first()
-#             if existing_otp:
-#                 if existing_otp.is_expired():
-#                     existing_otp.delete()
-#                     send_code_to_user(email)  
-#                     return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
-#                 else:
-#                     return Response({"error": "OTP previously sent is still valid"}, status=status.HTTP_400_BAD_REQUEST)
-
-#         except OneTimePassword.DoesNotExist:
-#             send_code_to_user(email) 
-#             return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
-#         except Exception as e:
-#             return Response({"error": "Failed to send new OTP"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 class ResendCodeView(APIView):
     @swagger_auto_schema(request_body=ResendcodeSerializer)
     def post(self, request):
@@ -274,6 +211,10 @@ class ResendCodeView(APIView):
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response({"error": "User with this email does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # verifing if the user is already verified to prevent sending otp again
+        if user.is_verified:
+            return Response({"error": "User is already verified"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             existing_otp = OneTimePassword.objects.filter(email=email).first()
@@ -286,8 +227,7 @@ class ResendCodeView(APIView):
                 else:
                     return Response({"error": "OTP previously sent is still valid"}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                send_code_to_user(email)  
-                return Response({"message": "New OTP sent successfully"}, status=status.HTTP_200_OK)
+                return Response({"error": "OTP yet to be generated"}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             return Response({"error": f"Failed to send new OTP: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -319,38 +259,49 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 login_view = CustomTokenObtainPairView.as_view()
 
 class PasswordResetRequestView(GenericAPIView):
-    serializer_class=PasswordResetRequestSerializer
+    serializer_class = PasswordResetRequestSerializer
+
     @swagger_auto_schema(request_body=PasswordResetRequestSerializer)
     def post(self, request):
-        serializer=self.serializer_class(data=request.data, context={'request':request})
+        serializer = self.serializer_class(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        return Response({'message':"An email has been send to you to reset you password"}, status=status.HTTP_200_OK)
+        return Response({'message': "An email has been sent to you to reset your password."}, status=status.HTTP_200_OK)
 
 class PasswordResetConfirm(GenericAPIView):
-    serializer_class=PasswordResetRequestSerializer
+    serializer_class = PasswordResetRequestSerializer
+
     def get(self, request, uidb64, token):
         try:
             user_id = smart_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(id=user_id)
-            if PasswordResetTokenGenerator().check_token(user, token):
-                # Generate URL for password reset form
-                site_domain = get_current_site(request).domain
-                reset_page_url = f"https://{site_domain}/api/v1/auth/set-new-password/{uidb64}/{token}/"
-                return Response({'message': 'Token is valid', 'reset_page_url': reset_page_url})
+
+            # Check if the token is valid
+            token_valid = PasswordResetTokenGenerator().check_token(user, token)
+            print(f"Token valid for user {user.email}: {token_valid}")
+            logger.debug(f"Token valid for user {user.email}: {token_valid}")
+            if token_valid:
+                return Response({'token_valid': True}, status=status.HTTP_200_OK)
             else:
-                return Response({'error': 'Token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'error': 'Token is invalid or has expired.', 'token_valid': False}, status=status.HTTP_401_UNAUTHORIZED)
         except (TypeError, ValueError, DjangoUnicodeDecodeError, User.DoesNotExist):
-            return Response({'error': 'Token is invalid or has expired'}, status=status.HTTP_401_UNAUTHORIZED)
-            
+            logger.error(f"Error decoding uidb64 or user not found: {uidb64}")
+            return Response({'token_valid': False, 'error': 'Token is invalid or has expired.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+@method_decorator(csrf_exempt, name='dispatch')
 class SetNewPassword(GenericAPIView):
     serializer_class = SetNewPasswordSerializer
 
     def patch(self, request):
+        logger.info(f'Received request with data: {request.data}')
         serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({"message": "Password changed successfully"})
-
+        try:
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({"message": "Password changed successfully."}, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
 class LogoutUserView(GenericAPIView):
     serializer_class = LogoutUserSerializer
     permission_classes = [IsAuthenticated]

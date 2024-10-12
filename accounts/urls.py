@@ -26,10 +26,11 @@ urlpatterns=[
     path('verify-email/', VerifyUserEmail.as_view(), name='verify-email'),
     path('resend-code/', ResendCodeView.as_view(), name='resend_code'),
     path('login/', login_view, name='login'),
-    path('password-reset/', PasswordResetRequestView.as_view(), name='password-reset'),
+    path('logout/', LogoutUserView.as_view(), name='logout'),
+    
+    path('request-password-reset-email/', PasswordResetRequestView.as_view(), name='password-reset'),
     path('password-reset-confirm/<uidb64>/<token>', PasswordResetConfirm.as_view(), name='password_reset_confirm'),
     path('set-new-password/', SetNewPassword.as_view(), name='set_new_password'),
-    path('logout/', LogoutUserView.as_view(), name='logout'),
 
     path('account/deactivate/', DeactivateAccountView.as_view(), name='deactivate-account'),
     path('account/activate/', ActivateAccountView.as_view(), name='activate-account'),

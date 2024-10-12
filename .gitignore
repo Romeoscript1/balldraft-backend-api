@@ -5,6 +5,7 @@ temp3DB.sql
 temp4DB
 temp5DB
 DevDB.db
+testDB.db
 
 c1.bash
 .venv/*

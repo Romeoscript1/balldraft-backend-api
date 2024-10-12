@@ -8,8 +8,13 @@ from datetime import timedelta
 from django.utils import timezone
 
 from django.conf import settings
+from django.core.mail import send_mail
 
 OTP_EXPIRATION_TIME_SECONDS = settings.OTP_EXPIRATION_TIME_SECONDS
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def generate_otp():
@@ -30,7 +35,7 @@ def send_code_to_user(email):
     user = User.objects.get(email=email)
     current_site = 'balldraft.com'
     email_body = f"Hello {user.first_name}, \nThanks for signing up on {current_site}. Here is your OTP to verify your email: {otp_code}."
-    from_email = settings.DEFAULT_FROM_EMAIL
+    from_email = settings.EMAIL_HOST_USER
 
     # Calculate expiration time for OTP
     expiration_time = timezone.now() + timedelta(seconds=OTP_EXPIRATION_TIME_SECONDS)
@@ -39,28 +44,17 @@ def send_code_to_user(email):
     OneTimePassword.objects.create(email=user.email, code=hashed_otp, expires_at=expiration_time)
 
     send_email = EmailMessage(subject=subject, body=email_body, from_email=from_email, to=[email])
-    send_email.send(fail_silently=True)
+    try:
+        send_email.send(fail_silently=True)
+        logger.debug("Opt sent")
+        return "Otp Sent"
+    except Exception as e:
+        logger.debug(f"Couldn't send otp code to mail: {e}")
+        return f"Couldn't send otp code to mail: {e}"
 
 
 def send_reset_password_email(data):
-    email=EmailMessage(subject=data['email_subject'], body=data['email_body'], from_email=settings.EMAIL_HOST_USER, to=[data['to_email']])
-
-    email.send(fail_silently=True)
-
-
-def send_verification_email(user, secret):
-    totp = pyotp.TOTP(secret)
-    otp = totp.now()
-    
-    email_subject = 'Verify your Email Address'
-    email_body = f"Hello {user.first_name},\n\nPlease verify your email address by entering the following code:\n\nOTP: {otp}\n\nThank you!"
-    from_email = settings.DEFAULT_FROM_EMAIL
-    
-    send_email = EmailMessage(subject=email_subject, body=email_body, from_email=from_email, to=[user.email])
-    send_email.send(fail_silently=True)
-
-
-def send_reset_password_email(data):
+    print(data['email_body'])
     email=EmailMessage(subject=data['email_subject'], body=data['email_body'], from_email=settings.EMAIL_HOST_USER, to=[data['to_email']])
 
     email.send(fail_silently=True)

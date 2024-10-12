@@ -181,9 +181,9 @@ DEFAULT_FROM_EMAIL='benjaminparish6@gmail.com'
 
 #balldraft/email_Backend.py
 
-#EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-#EMAIL_BACKEND = os.path.join(BASE_DIR, 'balldraft/email_Backend.py')
-#EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_BACKEND = os.path.join(BASE_DIR, 'balldraft/email_Backend.py')
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.zoho.com'
 #EMAIL_PORT = 587
 EMAIL_BACKEND = 'django_smtp_ssl.SSLEmailBackend'
@@ -193,6 +193,16 @@ EMAIL_PORT = 465
 EMAIL_HOST_USER = env("EMAIL_HOST_USER") 
 SUPPORT_EMAIL = "benjaminparish6@gmail.com"
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")  
+
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# # EMAIL_USE_SSL = True
+# # EMAIL_PORT = 465
+# EMAIL_HOST_USER = env("EMAIL_HOST_USER") 
+# SUPPORT_EMAIL = "benjaminparish6@gmail.com"
+# EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")  
 
 
 GOOGLE_CLIENT_ID=env("GOOGLE_CLIENT_ID")
@@ -251,3 +261,4 @@ SWAGGER_SETTINGS = {
 }
 
 OTP_EXPIRATION_TIME_SECONDS = 300
+FRONTEND_SET_NEW_PASSWORD_URL = env("FRONTEND_SET_NEW_PASSWORD_URL")
