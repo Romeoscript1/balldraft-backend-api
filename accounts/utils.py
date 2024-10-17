@@ -1,7 +1,7 @@
 import pyotp
 import hashlib
 import secrets
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, send_mail
 from django.conf import settings
 from .models import User, OneTimePassword
 from datetime import timedelta
@@ -41,15 +41,22 @@ def send_code_to_user(email):
     expiration_time = timezone.now() + timedelta(seconds=OTP_EXPIRATION_TIME_SECONDS)
 
     # Save hashed OTP in the database using email
-    OneTimePassword.objects.create(email=user.email, code=hashed_otp, expires_at=expiration_time)
+    try:
+        OneTimePassword.objects.create(email=user.email, code=hashed_otp, expires_at=expiration_time)
+        print("Successfully created an otp")
+    except Exception as e:
+        print(f"OTP could be generated {e}")
 
+    # send_mail(subject, email_body, from_email, email, fail_silently=False)
     send_email = EmailMessage(subject=subject, body=email_body, from_email=from_email, to=[email])
     try:
-        send_email.send(fail_silently=True)
+        send_email.send(fail_silently=False)
         logger.debug("Opt sent")
+        print("Otp Sent")
         return "Otp Sent"
     except Exception as e:
         logger.debug(f"Couldn't send otp code to mail: {e}")
+        print(f"Couldn't send otp code to mail: {e}")
         return f"Couldn't send otp code to mail: {e}"
 
 

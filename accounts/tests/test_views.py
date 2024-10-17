@@ -1,5 +1,4 @@
 from .test_setup import TestCaseSetUp
-import django
 
 class TestViews(TestCaseSetUp):
     """Tests on views functionalities"""
